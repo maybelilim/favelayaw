@@ -8,15 +8,15 @@ public class Keybinding {
 
     private int key;
     @Getter
-    private net.favela.yaw.impl.util.keyboard.Keybinding.bindType mode;
+    private bindType mode;
 
     public Keybinding(int key) {
         this.key = key;
-        this.mode = net.favela.yaw.impl.util.keyboard.Keybinding.bindType.NORMAL;
+        this.mode = bindType.NORMAL;
     }
 
-    public static net.favela.yaw.impl.util.keyboard.Keybinding none() {
-        return new net.favela.yaw.impl.util.keyboard.Keybinding(-1);
+    public static Keybinding none() {
+        return new Keybinding(-1);
     }
 
     public int get() {
