@@ -1,24 +1,36 @@
-# favelayaw - the best option for creating your own client in 2026
+# favelayaw
+A modern Minecraft client base for latest versions.
+  
+## Installation
+1. Install Fabric Loader for 26.2.
+2. Put `favelayaw-<VERSION>.jar` and the Fabric API into your `mods` folder.
+     
+## Screenshots
+<details>
+  <summary> UI </summary>
+  ![UI](https://github.com/maybelilim/favelayaw/blob/master/screenshots/gui.png?raw=true)
+</details>
+<details>
+  <summary> HUD </summary>
+  ![HUD](https://github.com/maybelilim/favelayaw/blob/master/screenshots/hud.png?raw=true)
+</details>
 
-# Requirements
-Minecraft 26.2 · Java 25 · Fabric Loader 0.19.3
+## Building
+```sh
+./gradlew build # output JAR will be located in ./build/libs/
+```
 
-# Installation
-Install Fabric Loader for 26.2.
-Put favelayaw-"version".jar and Fabric API into .minecraft/mods.
+## Credits
+- [maybelilim](https://github.com/maybelilim)
 
-Launch and open the ClickGUI with Right Shift.
+## FAQ
+- **ClickGUI:** Right Shift
+- **Command prefix:** `.`
+- **Minecraft:** 26.2
+- **Java:** 25
+- **Fabric Loader:** 0.19.3
 
-# Commands
-Prefix is .
+<hr>
 
-# Gui and hud pics in screenshots folder
-
-# Building
-./gradlew build
-Output: build/libs/favelayaw-"version".jar.
-
-# Credits
-Author: maybelilim
-
-# The client is a work in a progress and some features may not work as intended!
+> [\!WARNING]
+> This client is in early development, some features may not work as intended.
