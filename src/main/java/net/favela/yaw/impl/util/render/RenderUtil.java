@@ -3,6 +3,7 @@ package net.favela.yaw.impl.util.render;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -11,31 +12,20 @@ import java.awt.Color;
 
 import static net.favela.yaw.impl.util.wrapper.Wrapper.MC;
 
-public class RenderUtil {
+public final class RenderUtil {
 
-    public static void drawBoxOutline(PoseStack stack, AABB box, Color color, float lineWidth) {
-        double h = (lineWidth * 0.02) / 2.0;
-        double x1 = box.minX, y1 = box.minY, z1 = box.minZ;
-        double x2 = box.maxX, y2 = box.maxY, z2 = box.maxZ;
+    private static final int[] EDGES = {
+            0, 1, 1, 2, 2, 3, 3, 0,
+            4, 5, 5, 6, 6, 7, 7, 4,
+            0, 4, 1, 5, 2, 6, 3, 7
+    };
 
-        drawBoxFilled(stack, new AABB(x1 - h, y1 - h, z1 - h, x2 + h, y1 + h, z1 + h), color);
-        drawBoxFilled(stack, new AABB(x1 - h, y2 - h, z1 - h, x2 + h, y2 + h, z1 + h), color);
-        drawBoxFilled(stack, new AABB(x1 - h, y1 - h, z2 - h, x2 + h, y1 + h, z2 + h), color);
-        drawBoxFilled(stack, new AABB(x1 - h, y2 - h, z2 - h, x2 + h, y2 + h, z2 + h), color);
-
-        drawBoxFilled(stack, new AABB(x1 - h, y1 - h, z1 - h, x1 + h, y2 + h, z1 + h), color);
-        drawBoxFilled(stack, new AABB(x2 - h, y1 - h, z1 - h, x2 + h, y2 + h, z1 + h), color);
-        drawBoxFilled(stack, new AABB(x1 - h, y1 - h, z2 - h, x1 + h, y2 + h, z2 + h), color);
-        drawBoxFilled(stack, new AABB(x2 - h, y1 - h, z2 - h, x2 + h, y2 + h, z2 + h), color);
-
-        drawBoxFilled(stack, new AABB(x1 - h, y1 - h, z1 - h, x1 + h, y1 + h, z2 + h), color);
-        drawBoxFilled(stack, new AABB(x2 - h, y1 - h, z1 - h, x2 + h, y1 + h, z2 + h), color);
-        drawBoxFilled(stack, new AABB(x1 - h, y2 - h, z1 - h, x1 + h, y2 + h, z2 + h), color);
-        drawBoxFilled(stack, new AABB(x2 - h, y2 - h, z1 - h, x2 + h, y2 + h, z2 + h), color);
+    private RenderUtil() {
     }
 
-    public static void drawBoxFilled(PoseStack stack, AABB box, Color c) {
+    public static void drawBoxFilled(PoseStack stack, AABB box, Color color) {
         Vec3 cam = MC.gameRenderer.mainCamera().position();
+        PoseStack.Pose pose = stack.last();
 
         float minX = (float) (box.minX - cam.x);
         float minY = (float) (box.minY - cam.y);
@@ -43,43 +33,75 @@ public class RenderUtil {
         float maxX = (float) (box.maxX - cam.x);
         float maxY = (float) (box.maxY - cam.y);
         float maxZ = (float) (box.maxZ - cam.z);
+        int rgba = color.getRGB();
 
         RenderPipeline pipeline = Pipelines.GLOBAL_QUADS_PIPELINE;
-        BufferBuilder bufferBuilder = new BufferBuilder(
-                Drawer.allocator(), pipeline.getPrimitiveTopology(), pipeline.getVertexFormatBinding(0));
+        BufferBuilder buffer = new BufferBuilder(Drawer.allocator(), pipeline.getPrimitiveTopology(), pipeline.getVertexFormatBinding(0));
+        VertexConsumer v = buffer;
+
+        v.addVertex(pose, minX, minY, minZ).setColor(rgba);
+        v.addVertex(pose, maxX, minY, minZ).setColor(rgba);
+        v.addVertex(pose, maxX, minY, maxZ).setColor(rgba);
+        v.addVertex(pose, minX, minY, maxZ).setColor(rgba);
+
+        v.addVertex(pose, minX, maxY, minZ).setColor(rgba);
+        v.addVertex(pose, minX, maxY, maxZ).setColor(rgba);
+        v.addVertex(pose, maxX, maxY, maxZ).setColor(rgba);
+        v.addVertex(pose, maxX, maxY, minZ).setColor(rgba);
+
+        v.addVertex(pose, minX, minY, minZ).setColor(rgba);
+        v.addVertex(pose, minX, maxY, minZ).setColor(rgba);
+        v.addVertex(pose, maxX, maxY, minZ).setColor(rgba);
+        v.addVertex(pose, maxX, minY, minZ).setColor(rgba);
+
+        v.addVertex(pose, maxX, minY, minZ).setColor(rgba);
+        v.addVertex(pose, maxX, maxY, minZ).setColor(rgba);
+        v.addVertex(pose, maxX, maxY, maxZ).setColor(rgba);
+        v.addVertex(pose, maxX, minY, maxZ).setColor(rgba);
+
+        v.addVertex(pose, minX, minY, maxZ).setColor(rgba);
+        v.addVertex(pose, maxX, minY, maxZ).setColor(rgba);
+        v.addVertex(pose, maxX, maxY, maxZ).setColor(rgba);
+        v.addVertex(pose, minX, maxY, maxZ).setColor(rgba);
+
+        v.addVertex(pose, minX, minY, minZ).setColor(rgba);
+        v.addVertex(pose, minX, minY, maxZ).setColor(rgba);
+        v.addVertex(pose, minX, maxY, maxZ).setColor(rgba);
+        v.addVertex(pose, minX, maxY, minZ).setColor(rgba);
+
+        Drawer.draw(pipeline, buffer.buildOrThrow());
+    }
+
+    public static void drawBoxOutline(PoseStack stack, AABB box, Color color, float lineWidth) {
+        Vec3 cam = MC.gameRenderer.mainCamera().position();
         PoseStack.Pose pose = stack.last();
 
-        bufferBuilder.addVertex(pose, minX, minY, minZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, minY, minZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, minY, maxZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, minX, minY, maxZ).setColor(c.getRGB());
+        float minX = (float) (box.minX - cam.x);
+        float minY = (float) (box.minY - cam.y);
+        float minZ = (float) (box.minZ - cam.z);
+        float maxX = (float) (box.maxX - cam.x);
+        float maxY = (float) (box.maxY - cam.y);
+        float maxZ = (float) (box.maxZ - cam.z);
+        int rgba = color.getRGB();
 
-        bufferBuilder.addVertex(pose, minX, maxY, minZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, minX, maxY, maxZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, maxY, maxZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, maxY, minZ).setColor(c.getRGB());
+        float[] xs = {minX, maxX, maxX, minX, minX, maxX, maxX, minX};
+        float[] ys = {minY, minY, minY, minY, maxY, maxY, maxY, maxY};
+        float[] zs = {minZ, minZ, maxZ, maxZ, minZ, minZ, maxZ, maxZ};
 
-        bufferBuilder.addVertex(pose, minX, minY, minZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, minX, maxY, minZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, maxY, minZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, minY, minZ).setColor(c.getRGB());
+        RenderPipeline pipeline = Pipelines.GLOBAL_LINES_PIPELINE;
+        BufferBuilder buffer = new BufferBuilder(Drawer.allocator(), pipeline.getPrimitiveTopology(), pipeline.getVertexFormatBinding(0));
 
-        bufferBuilder.addVertex(pose, maxX, minY, minZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, maxY, minZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, maxY, maxZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, minY, maxZ).setColor(c.getRGB());
+        for (int i = 0; i < EDGES.length; i += 2) {
+            int a = EDGES[i];
+            int b = EDGES[i + 1];
+            float dx = xs[b] - xs[a];
+            float dy = ys[b] - ys[a];
+            float dz = zs[b] - zs[a];
+            buffer.addVertex(pose, xs[a], ys[a], zs[a]).setNormal(pose, dx, dy, dz).setColor(rgba).setLineWidth(lineWidth);
+            buffer.addVertex(pose, xs[b], ys[b], zs[b]).setNormal(pose, dx, dy, dz).setColor(rgba).setLineWidth(lineWidth);
+        }
 
-        bufferBuilder.addVertex(pose, minX, minY, maxZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, minY, maxZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, maxX, maxY, maxZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, minX, maxY, maxZ).setColor(c.getRGB());
-
-        bufferBuilder.addVertex(pose, minX, minY, minZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, minX, minY, maxZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, minX, maxY, maxZ).setColor(c.getRGB());
-        bufferBuilder.addVertex(pose, minX, maxY, minZ).setColor(c.getRGB());
-
-        Drawer.draw(pipeline, bufferBuilder.buildOrThrow());
+        Drawer.draw(pipeline, buffer.buildOrThrow());
     }
 
     public static void rect(GuiGraphicsExtractor ctx, double x, double y, double x2, double y2, int color) {
@@ -97,8 +119,8 @@ public class RenderUtil {
     public static void horizontalGradient(GuiGraphicsExtractor ctx, double x, double y, double x2, double y2, Color left, Color right) {
         int x0 = (int) x;
         int x1 = (int) x2;
-        int yy0 = (int) y;
-        int yy1 = (int) y2;
+        int y0 = (int) y;
+        int y1 = (int) y2;
         int width = Math.max(1, x1 - x0);
         for (int i = 0; i < width; i++) {
             float f = width <= 1 ? 0f : i / (float) (width - 1);
@@ -106,7 +128,7 @@ public class RenderUtil {
             int g = (int) (left.getGreen() + (right.getGreen() - left.getGreen()) * f);
             int b = (int) (left.getBlue() + (right.getBlue() - left.getBlue()) * f);
             int a = (int) (left.getAlpha() + (right.getAlpha() - left.getAlpha()) * f);
-            ctx.fill(x0 + i, yy0, x0 + i + 1, yy1, new Color(r, g, b, a).getRGB());
+            ctx.fill(x0 + i, y0, x0 + i + 1, y1, new Color(r, g, b, a).getRGB());
         }
     }
 }

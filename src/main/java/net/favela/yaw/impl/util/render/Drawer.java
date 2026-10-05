@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 public class Drawer {
+
     private static final ByteBufferBuilder ALLOCATOR = new ByteBufferBuilder(1536);
     private static final Vector4f COLOR_MODULATOR = new Vector4f(1.0F, 1.0F, 1.0F, 1.0F);
     private static final Vector3f MODEL_OFFSET = new Vector3f();

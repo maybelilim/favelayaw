@@ -3,16 +3,12 @@
 	"package": "net.favela.yaw.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-		"MixinTitleScreen",
 		"MixinHud",
-		"MixinPlayerInfo",
 		"MixinLivingEntity",
 		"MixinMinecraft",
 		"MixinLocalPlayer",
 		"MixinConnection",
-		"MixinCamera",
 		"MixinStringDecomposer",
-		"MixinDeathScreen",
 		"MixinGameRenderer",
 		"MixinLevelRenderer"
 	],
