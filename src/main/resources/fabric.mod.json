@@ -3,7 +3,7 @@
 	"id": "${id}",
 	"version": "${version}",
 	"name": "${name}",
-	"description": "A 26.2 Minecraft cheat client.",
+	"description": "A modern Minecraft client base for latest versions.",
 	"authors": [ "maybelilim" ],
 	"contact": {
 		"sources": "https://github.com/maybelilim/favelayaw"
