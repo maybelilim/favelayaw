@@ -15,9 +15,8 @@ public abstract class MixinLivingEntity {
     private void yaw$applyStep(CallbackInfoReturnable<Float> cir) {
         LivingEntity self = (LivingEntity) (Object) this;
         if (self != Minecraft.getInstance().player) return;
-        Step step = Step.INSTANCE;
-        if (step == null) return;
-        if (!step.isVanillaMode()) return;
+        Step step = Step.getInstance();
+        if (step == null || !step.isVanillaMode()) return;
         cir.setReturnValue(step.getStepHeightValue());
     }
 }

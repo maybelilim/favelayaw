@@ -1,9 +1,8 @@
 package net.favela.yaw.impl.modules;
 
-import java.awt.*;
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 
@@ -32,19 +31,16 @@ public abstract class Module {
     @Getter
     private boolean hidden = false;
 
-    private final int id;
-
-    private final List<Events.Handler<?>> handlers = new ArrayList<>();
-
     public BindSetting bind = register(new BindSetting("Bind", "module's bind", -1));
     public BooleanSetting drawn = register(new BooleanSetting("Drawn", "module's drawn state", true));
     public BooleanSetting debug = register(new BooleanSetting("Debug", "", () -> false, false));
+
+    private List<Events.Handler<?>> handlers;
 
     public Module(String name, String description, Category category) {
         this.name = name;
         this.description = description;
         this.category = category;
-        this.id = Objects.hash(name);
     }
 
     public void onToggle() {
@@ -83,11 +79,8 @@ public abstract class Module {
         if (this.enabled) return;
         this.enabled = true;
 
-        handlers.add(Events.on(TickEvent.class, e -> onTick()));
-        handlers.add(Events.on(UpdateEvent.class, this::onUpdate));
-        handlers.add(Events.on(RenderBlockOutlineEvent.class, this::onRenderBlockOutline));
-        handlers.add(Events.on(Render2DEvent.class, this::onRender2D));
-        handlers.add(Events.on(Render3DEvent.class, this::onRender3D));
+        if (handlers == null) handlers = createHandlers();
+        handlers.forEach(Events::register);
 
         notifyState(true);
         this.onEnable();
@@ -98,8 +91,7 @@ public abstract class Module {
         if (!this.enabled) return;
         this.enabled = false;
 
-        handlers.forEach(Events::off);
-        handlers.clear();
+        if (handlers != null) handlers.forEach(Events::off);
 
         notifyState(false);
         this.onDisable();
@@ -114,14 +106,28 @@ public abstract class Module {
         }
     }
 
+    public void setBind(int bind) {
+        this.bind.setKey(bind);
+    }
+
+    private List<Events.Handler<?>> createHandlers() {
+        return List.of(
+                Events.handler(TickEvent.class, e -> onTick()),
+                Events.handler(UpdateEvent.class, this::onUpdate),
+                Events.handler(RenderBlockOutlineEvent.class, this::onRenderBlockOutline),
+                Events.handler(Render2DEvent.class, this::onRender2D),
+                Events.handler(Render3DEvent.class, this::onRender3D)
+        );
+    }
+
     private void notifyState(boolean state) {
         Notification notif = Notification.getInstance();
         if (notif != null) {
-            notif.notify(name, state, id);
+            notif.notify(name, state);
         } else {
             String color = state ? "§a" : "§4";
             String label = state ? "enabled" : "disabled";
-            ChatUtil.sendMessagePrefixID(name + " was " + color + label, id);
+            ChatUtil.sendMessage(name + " was " + color + label);
         }
     }
 
@@ -291,23 +297,6 @@ public abstract class Module {
         return register(new ColorSetting(name, "", visibility, defaultValue, allowAlpha));
     }
 
-    public boolean getDrawn() {
-        return drawn.get();
-    }
-
-    public void setDrawn(boolean b) {
-        drawn.setValue(b);
-    }
-
-    public void setDebug(boolean debug) {
-        this.debug.setValue(debug);
-    }
-
-    public void setBind(int bind) {
-        this.bind.setKey(bind);
-    }
-
-    @Getter
     public enum Category {
         GHOST("Ghost"),
         COMBAT("Combat"),
@@ -318,6 +307,7 @@ public abstract class Module {
         CLIENT("Client"),
         HUD("Hud");
 
+        @Getter
         private final String name;
 
         Category(String name) {

@@ -1,6 +1,9 @@
 package net.favela.yaw.impl.management.managers;
 
-import com.google.gson.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import lombok.Getter;
 import lombok.Setter;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -11,19 +14,27 @@ import net.favela.yaw.impl.setting.Setting;
 import net.favela.yaw.impl.util.log.Log;
 import net.minecraft.client.Minecraft;
 
-import java.io.*;
-import java.nio.file.*;
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class ConfigManager {
 
     public static final String DEFAULT_CONFIG = "default";
-    private final Path configDir;
+    private static final Pattern SAFE_NAME = Pattern.compile("[A-Za-z0-9 _\\-]{1,32}");
 
+    private final Path configDir;
     private final Path activeConfigFile;
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+
     @Setter
     @Getter
     private String currentConfig = DEFAULT_CONFIG;
@@ -42,11 +53,9 @@ public class ConfigManager {
 
     public void registerLifecycle() {
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-            if (currentConfig != null) {
-                save();
-                writeActiveConfig(currentConfig);
-                Log.info("{} config '{}' saved on shutdown", EntryPoint.name(), currentConfig);
-            }
+            save();
+            writeActiveConfig(currentConfig);
+            Log.info("{} config '{}' saved on shutdown", EntryPoint.name(), currentConfig);
         });
     }
 
@@ -54,17 +63,22 @@ public class ConfigManager {
         return configDir.resolve(name + ".json");
     }
 
+    private static boolean isValidName(String name) {
+        return name != null && SAFE_NAME.matcher(name).matches();
+    }
+
     public boolean exists(String name) {
-        return Files.exists(fileFor(name));
+        return Files.isRegularFile(fileFor(name));
     }
 
     public List<String> list() {
         List<String> names = new ArrayList<>();
         try (Stream<Path> stream = Files.list(configDir)) {
-            stream.filter(p -> p.getFileName().toString().endsWith(".json")).forEach(p -> {
-                String fileName = p.getFileName().toString();
-                names.add(fileName.substring(0, fileName.length() - 5));
-            });
+            stream.filter(Files::isRegularFile)
+                    .map(p -> p.getFileName().toString())
+                    .filter(n -> n.endsWith(".json"))
+                    .map(n -> n.substring(0, n.length() - 5))
+                    .forEach(names::add);
         } catch (IOException e) {
             Log.error("Failed to list configs", e);
         }
@@ -73,7 +87,7 @@ public class ConfigManager {
     }
 
     public boolean create(String name) {
-        if (exists(name)) return false;
+        if (!isValidName(name) || exists(name)) return false;
         currentConfig = name;
         save(name);
         writeActiveConfig(name);
@@ -81,12 +95,19 @@ public class ConfigManager {
     }
 
     public boolean delete(String name) {
+        if (!isValidName(name) || !exists(name)) return false;
         try {
-            return Files.deleteIfExists(fileFor(name));
+            Files.delete(fileFor(name));
         } catch (IOException e) {
             Log.error("Failed to delete config {}", name, e);
             return false;
         }
+        if (currentConfig.equals(name)) {
+            currentConfig = DEFAULT_CONFIG;
+            save(DEFAULT_CONFIG);
+            writeActiveConfig(DEFAULT_CONFIG);
+        }
+        return true;
     }
 
     public void save() {
@@ -94,6 +115,10 @@ public class ConfigManager {
     }
 
     public void save(String name) {
+        if (!isValidName(name)) {
+            Log.warn("Refusing to save config with invalid name '{}'", name);
+            return;
+        }
         JsonObject root = new JsonObject();
         for (Module module : Manager.MODULE.getModules()) {
             JsonObject moduleObj = new JsonObject();
@@ -109,8 +134,8 @@ public class ConfigManager {
             moduleObj.add("settings", settingsObj);
             root.add(module.getName(), moduleObj);
         }
-        try (Writer writer = Files.newBufferedWriter(fileFor(name))) {
-            gson.toJson(root, writer);
+        try {
+            writeFile(fileFor(name), gson.toJson(root));
             Log.info("Config saved to {}", fileFor(name));
         } catch (IOException e) {
             Log.error("Failed to save config", e);
@@ -130,12 +155,11 @@ public class ConfigManager {
     }
 
     public boolean load(String name) {
-        Path configFile = fileFor(name);
-        if (!Files.exists(configFile)) {
+        if (!isValidName(name) || !exists(name)) {
             Log.info("No config file found for {}, using defaults", name);
             return false;
         }
-        try (Reader reader = Files.newBufferedReader(configFile)) {
+        try (Reader reader = Files.newBufferedReader(fileFor(name), StandardCharsets.UTF_8)) {
             JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
             for (Module module : Manager.MODULE.getModules()) {
                 if (!root.has(module.getName())) continue;
@@ -159,11 +183,21 @@ public class ConfigManager {
             }
             currentConfig = name;
             writeActiveConfig(name);
-            Log.info("Config loaded from {}", configFile);
+            Log.info("Config loaded from {}", fileFor(name));
             return true;
         } catch (Exception e) {
             Log.error("Failed to load config", e);
             return false;
+        }
+    }
+
+    private void writeFile(Path file, String content) throws IOException {
+        Path temp = file.resolveSibling(file.getFileName() + ".tmp");
+        Files.writeString(temp, content, StandardCharsets.UTF_8);
+        try {
+            Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 

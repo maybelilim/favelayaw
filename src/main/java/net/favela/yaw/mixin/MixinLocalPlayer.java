@@ -14,7 +14,8 @@ public class MixinLocalPlayer {
 
     @Inject(method = "aiStep", at = @At("HEAD"))
     private void yaw$onUpdate(CallbackInfo ci) {
-        if (Minecraft.getInstance().player == (Object) this) {
+        LocalPlayer self = (LocalPlayer) (Object) this;
+        if (self == Minecraft.getInstance().player) {
             Events.post(new UpdateEvent());
         }
     }

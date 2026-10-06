@@ -9,6 +9,7 @@ import static net.minecraft.client.renderer.RenderPipelines.DEBUG_FILLED_SNIPPET
 import static net.minecraft.client.renderer.RenderPipelines.LINES_SNIPPET;
 
 public class Pipelines {
+
     static final RenderPipeline GLOBAL_QUADS_PIPELINE = RenderPipeline.builder(DEBUG_FILLED_SNIPPET)
             .withLocation("pipeline/global_fill_pipeline")
             .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)

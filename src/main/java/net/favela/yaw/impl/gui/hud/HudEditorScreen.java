@@ -13,16 +13,18 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 
 import java.awt.Color;
 import java.util.ArrayList;
 
 public class HudEditorScreen extends Screen {
 
-    private static HudEditorScreen INSTANCE;
+    private static HudEditorScreen instance;
 
     private final ArrayList<Frame> frames = new ArrayList<>();
     private final Minecraft mc = Minecraft.getInstance();
+    private final Anim screenAnim = new Anim(0f);
 
     public Hud currentDragging;
     public boolean anyHover;
@@ -30,20 +32,18 @@ public class HudEditorScreen extends Screen {
     private float dragY;
     private boolean dragging;
 
-    private final Anim screenAnim = new Anim(0f);
-
     private HudEditorScreen() {
         super(Component.literal("favelayaw-hudeditor"));
         load();
     }
 
     public static HudEditorScreen getInstance() {
-        if (INSTANCE == null) INSTANCE = new HudEditorScreen();
-        return INSTANCE;
+        if (instance == null) instance = new HudEditorScreen();
+        return instance;
     }
 
     private void load() {
-        int x = (mc.getWindow().getGuiScaledWidth() - (104 + GUI.INSTANCE.width.getInt())) / 2;
+        int x = (mc.getWindow().getGuiScaledWidth() - (104 + GUI.get().width.getInt())) / 2;
         frames.add(new Frame(Module.Category.HUD, x, 50));
     }
 
@@ -53,12 +53,13 @@ public class HudEditorScreen extends Screen {
         currentDragging = null;
         screenAnim.set(0f);
         super.onClose();
-        if (HUD.getInstance() != null && HUD.getInstance().isEnabled()) HUD.getInstance().disable();
+        HUD hud = HUD.getInstance();
+        if (hud != null && hud.isEnabled()) hud.disable();
     }
 
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        if (mc.level != null && GUI.INSTANCE.blur.get()) {
+        if (mc.level != null && GUI.get().blur.get()) {
             mc.options.menuBackgroundBlurriness().set(5);
             graphics.blurBeforeThisStratum();
         }
@@ -70,8 +71,10 @@ public class HudEditorScreen extends Screen {
         float fade = screenAnim.to(1f, 20f);
         int alpha = (int) (255 * fade);
 
-        Color grad = GUI.INSTANCE.backgroundGradient.get();
-        RenderUtil.verticalGradient(context, 0, 0, context.guiWidth(), context.guiHeight(), new Color(0, 0, 0, 0), new Color(grad.getRed(), grad.getGreen(), grad.getBlue(), (int) (grad.getAlpha() * fade)));
+        Color grad = GUI.get().backgroundGradient.get();
+        RenderUtil.verticalGradient(context, 0, 0, context.guiWidth(), context.guiHeight(),
+                new Color(0, 0, 0, 0),
+                new Color(grad.getRed(), grad.getGreen(), grad.getBlue(), (int) (grad.getAlpha() * fade)));
 
         float centerX = context.guiWidth() / 2f;
         float centerY = context.guiHeight() / 2f;
@@ -126,11 +129,7 @@ public class HudEditorScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         for (Frame frame : frames) {
-            if (GUI.INSTANCE.scrollMode.get() == GUI.ScrollMode.PYZO) {
-                frame.mouseScrolled(mouseX, mouseY, vertical);
-            } else {
-                frame.setY((int) (frame.getY() + vertical * 25.0));
-            }
+            frame.setY((int) (frame.getY() + vertical * 25.0));
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
@@ -140,10 +139,12 @@ public class HudEditorScreen extends Screen {
         int keyCode = event.key();
         for (Frame frame : frames) {
             if (!frame.isOpen()) continue;
-            if (keyCode == 265) frame.setY(frame.getY() - 10);
-            if (keyCode == 264) frame.setY(frame.getY() + 10);
-            if (keyCode == 263) frame.setX(frame.getX() - 10);
-            if (keyCode == 262) frame.setX(frame.getX() + 10);
+            switch (keyCode) {
+                case GLFW.GLFW_KEY_UP -> frame.setY(frame.getY() - 10);
+                case GLFW.GLFW_KEY_DOWN -> frame.setY(frame.getY() + 10);
+                case GLFW.GLFW_KEY_LEFT -> frame.setX(frame.getX() - 10);
+                case GLFW.GLFW_KEY_RIGHT -> frame.setX(frame.getX() + 10);
+            }
             frame.onKeyPressed(keyCode);
         }
         return super.keyPressed(event);
@@ -168,17 +169,20 @@ public class HudEditorScreen extends Screen {
 
     private void updateModulePosition(int mouseX, int mouseY) {
         Hud module = currentDragging;
-        int offset = HUD.getInstance() != null ? HUD.getInstance().offset.getInt() : 2;
+        HUD hud = HUD.getInstance();
+        int offset = hud != null ? hud.offset.getInt() : 2;
         float scaledWidth = mc.getWindow().getGuiScaledWidth();
         float scaledHeight = mc.getWindow().getGuiScaledHeight();
         float width = module.getWidth();
         float height = module.getHeight();
 
-        float x = (mouseX - dragX - offset) / (scaledWidth - width - 2 * offset);
-        float y = (mouseY - dragY - offset) / (scaledHeight - height - 2 * offset);
+        float xRange = Math.max(1f, scaledWidth - width - 2 * offset);
+        float yRange = Math.max(1f, scaledHeight - height - 2 * offset);
+        float x = (mouseX - dragX - offset) / xRange;
+        float y = (mouseY - dragY - offset) / yRange;
 
-        x = Math.max(0.0f, Math.min(1.0f, x));
-        y = Math.max(0.0f, Math.min(1.0f, y));
+        x = Math.clamp(x, 0.0f, 1.0f);
+        y = Math.clamp(y, 0.0f, 1.0f);
 
         float snapThreshold = 0.025f;
         x = applySnapping(x, snapThreshold);
@@ -188,7 +192,7 @@ public class HudEditorScreen extends Screen {
         module.setPosY(y);
     }
 
-    private float applySnapping(float value, float snapThreshold) {
+    private static float applySnapping(float value, float snapThreshold) {
         if (value < snapThreshold) return 0.0f;
         if (value > 1.0f - snapThreshold) return 1.0f;
         if (Math.abs(value - 0.5f) < snapThreshold) return 0.5f;

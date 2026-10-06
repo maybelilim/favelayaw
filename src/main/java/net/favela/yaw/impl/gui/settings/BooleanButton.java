@@ -22,13 +22,13 @@ public class BooleanButton extends Button {
     public void render(GuiGraphicsExtractor ctx, int mx, int my, float t, int alpha) {
         float on = onAnim.to(setting.get() ? 1f : 0f, 25f);
         if (on > 0.001f) {
-            Color theme = GUI.INSTANCE.theme.get();
+            Color theme = GUI.get().theme.get();
             RenderUtil.rect(ctx, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
                     new Color(theme.getRed(), theme.getGreen(), theme.getBlue(),
                             (int) (theme.getAlpha() * on * (alpha / 255f))).getRGB());
         }
         renderHover(ctx, mx, my, alpha);
-        if (GUI.INSTANCE.text.get() == GUI.Text.Separate) {
+        if (GUI.get().text.get() == GUI.Text.Separate) {
             int c = setting.get() ? 255 : 128;
             drawString(ctx, (setting.get() ? "" : "\u00a77") + setting.getName(), getX() + 2, getY(),
                     new Color(c, c, c, alpha).getRGB(), alpha);

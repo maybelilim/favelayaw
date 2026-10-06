@@ -76,18 +76,8 @@ public class NumberSetting extends Setting<Number> {
         return value.toString();
     }
 
-    public Number getMinReplace(Number replacement) {
-        return displayIfMin != null && value.equals(min) ? replacement : value;
-    }
-
-    public Number getMaxReplace(Number replacement) {
-        return displayIfMax != null && value.equals(max) ? replacement : value;
-    }
-
     public float getFloat() { return value.floatValue(); }
     public int getInt() { return value.intValue(); }
-    public double getDouble() { return value.doubleValue(); }
-    public long getLong() { return value.longValue(); }
 
     @Override
     public JsonElement toJson() {

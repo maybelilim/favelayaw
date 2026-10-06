@@ -1,6 +1,7 @@
 package net.favela.yaw.impl.modules.categories.movement;
 
 import com.google.auto.service.AutoService;
+import lombok.Getter;
 import net.favela.yaw.impl.modules.Module;
 import net.favela.yaw.impl.setting.settings.EnumSetting;
 import net.favela.yaw.impl.setting.settings.NumberSetting;
@@ -14,9 +15,12 @@ import static net.favela.yaw.impl.util.wrapper.Wrapper.MC;
 @AutoService(Module.class)
 public class Step extends Module {
 
-    public enum Mode { Vanilla, NCP }
+    public enum Mode {
+        Vanilla, NCP
+    }
 
-    public static Step INSTANCE;
+    @Getter
+    private static Step instance;
 
     public final EnumSetting<Mode> mode = enm("Mode", Mode.Vanilla);
     public final NumberSetting height = num("Height", 0.0f, 6.0f, 2.0f);
@@ -30,16 +34,16 @@ public class Step extends Module {
 
     public Step() {
         super("Step", "Step up blocks", Category.MOVEMENT);
-        INSTANCE = this;
+        instance = this;
     }
 
     @Override
     public void onTick() {
         if (MC.player == null || MC.level == null) return;
 
-        final LocalPlayer player = MC.player;
+        LocalPlayer player = MC.player;
         switch (mode.get()) {
-            case Vanilla -> handleVanilla(player);
+            case Vanilla -> setStepHeight(player, DEFAULT_STEP);
             case NCP -> handleNCP(player);
         }
 
@@ -65,21 +69,16 @@ public class Step extends Module {
         return height.getFloat();
     }
 
-    private void handleVanilla(LocalPlayer player) {
-        setStepHeight(player, DEFAULT_STEP);
-    }
-
     private void handleNCP(LocalPlayer player) {
         setStepHeight(player, DEFAULT_STEP);
-        if (!hasPrev) return;
-        if (!player.horizontalCollision) return;
+        if (!hasPrev || !player.horizontalCollision) return;
 
         double climbed = player.getY() - prevY;
         float maxH = height.getFloat();
         if (climbed <= 0.5D || climbed > maxH) return;
 
         double[] offsets = getOffset(climbed);
-        if (offsets == null || offsets.length < 2) return;
+        if (offsets == null) return;
 
         for (double offset : offsets) {
             player.connection.send(new ServerboundMovePlayerPacket.Pos(
@@ -97,14 +96,14 @@ public class Step extends Module {
                 player.horizontalCollision));
     }
 
-    private void setStepHeight(LocalPlayer player, double value) {
+    private static void setStepHeight(LocalPlayer player, double value) {
         AttributeInstance attr = player.getAttribute(Attributes.STEP_HEIGHT);
         if (attr != null && Math.abs(attr.getBaseValue() - value) > 1.0E-6D) {
             attr.setBaseValue(value);
         }
     }
 
-    public double[] getOffset(double climbed) {
+    private double[] getOffset(double climbed) {
         int key = (int) Math.round(climbed * 10000.0D);
         double[] direct = offsetsForKey(key);
         if (direct != null) return direct;
@@ -122,7 +121,7 @@ public class Step extends Module {
         return offsetsForKey((int) Math.round(best * 10000.0D));
     }
 
-    private double[] offsetsForKey(int key) {
+    private static double[] offsetsForKey(int key) {
         return switch (key) {
             case 7500, 10000 -> new double[]{0.42D, 0.753D};
             case 8125, 8750 -> new double[]{0.39D, 0.7D};

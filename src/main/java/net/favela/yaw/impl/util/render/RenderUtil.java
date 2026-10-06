@@ -21,6 +21,7 @@ public final class RenderUtil {
     };
 
     private RenderUtil() {
+
     }
 
     public static void drawBoxFilled(PoseStack stack, AABB box, Color color) {

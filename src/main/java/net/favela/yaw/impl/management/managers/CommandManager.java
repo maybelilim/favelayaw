@@ -15,26 +15,22 @@ import net.minecraft.client.multiplayer.ClientSuggestionProvider;
 import net.minecraft.commands.SharedSuggestionProvider;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import static net.favela.yaw.impl.util.wrapper.Wrapper.MC;
 
-@Setter
-@Getter
 public class CommandManager {
 
-    public static final List<Command> commands = new ArrayList<>();
-    private static final Set<String> moduleCommandNames = new HashSet<>();
-    public static CommandDispatcher<SharedSuggestionProvider> dispatcher = new CommandDispatcher<>();
-    private String prefix = "!"; // the main client commands prefix
+    private final List<Command> commands = new ArrayList<>();
+    private final CommandDispatcher<SharedSuggestionProvider> dispatcher = new CommandDispatcher<>();
+
+    @Setter
+    @Getter
+    private String prefix = "!";
 
     public void initialize() {
-        for (Module m : Manager.MODULE.getModules()) {
-            ModuleCommand cmd = new ModuleCommand(m);
-            moduleCommandNames.add(cmd.getName().toLowerCase());
-            add(cmd);
+        for (Module module : Manager.MODULE.getModules()) {
+            add(new ModuleCommand(module));
         }
         add(new ConfigCommand());
 
@@ -51,27 +47,27 @@ public class CommandManager {
         return false;
     }
 
-    public static void add(Command command) {
+    public void add(Command command) {
         commands.removeIf(existing -> existing.getName().equals(command.getName()));
         commands.add(command);
         command.registerTo(dispatcher);
     }
 
-    public static void dispatch(String message) throws CommandSyntaxException {
+    public void dispatch(String message) throws CommandSyntaxException {
         if (MC.getConnection() != null) {
             ClientSuggestionProvider provider = MC.getConnection().getSuggestionsProvider();
             dispatcher.execute(message, provider);
         }
     }
 
-    public static Command get(String name) {
+    public Command get(String name) {
         for (Command command : commands) {
             if (command.getName().equals(name)) return command;
         }
         return null;
     }
 
-    public static boolean isModuleCommand(String name) {
-        return moduleCommandNames.contains(name.toLowerCase());
+    public List<Command> getCommands() {
+        return List.copyOf(commands);
     }
 }

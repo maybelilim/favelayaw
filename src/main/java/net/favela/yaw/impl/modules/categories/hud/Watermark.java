@@ -32,7 +32,9 @@ public class Watermark extends Hud {
         int y = (int) getY();
 
         HUD editor = HUD.getInstance();
-        int nameColor = editor != null ? editor.getColor(0).getRGB() : (GUI.INSTANCE != null ? GUI.INSTANCE.theme.getRGB() : new Color(255, 255, 255).getRGB());
+        int nameColor = editor != null
+                ? editor.getColor().getRGB()
+                : (GUI.get() != null ? GUI.get().theme.getRGB() : Color.WHITE.getRGB());
 
         context.text(font, name, x, y, nameColor, true);
         context.text(font, version, x + font.width(name), y, 0xFFFFFFFF, true);

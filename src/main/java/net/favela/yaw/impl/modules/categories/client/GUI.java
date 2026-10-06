@@ -15,42 +15,52 @@ import java.awt.Color;
 
 import static net.favela.yaw.impl.util.wrapper.Wrapper.MC;
 
+@Getter
 @AutoService(Module.class)
 public class GUI extends Module {
-    public static GUI INSTANCE;
+
+    private static GUI instance;
 
     public ColorSetting theme = color("Theme", "GUI accent color", new Color(163, 135, 255, 255), true);
     public NumberSetting width = num("Width", "Extra module width", -50, 150, 0);
     public NumberSetting height = num("Height", "Extra module height", -2, 4, 0);
     public EnumSetting<Text> text = enm("Text", "Module text style", Text.Separate);
-    public BooleanSetting darkBackground = bool("Dark Background", "Darken module background", false);
+    public BooleanSetting darkBackground = bool("DarkBackground", "Darken module background", false);
     public BooleanSetting gear = bool("Gear", "Show open indicator", true);
-    public EnumSetting<GearStyle> gearStyle = enm("Gear Style", () -> gear.get(), GearStyle.Plus);
-    public StringSetting gearOpen = str("Gear Open", () -> gear.get() && gearStyle.get() == GearStyle.Custom, "-");
-    public StringSetting gearClosed = str("Gear Closed", () -> gear.get() && gearStyle.get() == GearStyle.Custom, "+");
+    public EnumSetting<GearStyle> gearStyle = enm("GearStyle", () -> gear.get(), GearStyle.Plus);
+    public StringSetting gearOpen = str("GearOpen", () -> gear.get() && gearStyle.get() == GearStyle.Custom, "-");
+    public StringSetting gearClosed = str("GearClosed", () -> gear.get() && gearStyle.get() == GearStyle.Custom, "+");
     public BooleanSetting binds = bool("Binds", "Show module binds", false);
-    public ColorSetting enabledText = color("Enabled Text", () -> text.get() == Text.Custom, Color.WHITE, true);
-    public ColorSetting disabledText = color("Disabled Text", () -> text.get() == Text.Custom, Color.GRAY, true);
+    public ColorSetting enabledText = color("EnabledText", () -> text.get() == Text.Custom, Color.WHITE, true);
+    public ColorSetting disabledText = color("DisabledText", () -> text.get() == Text.Custom, Color.GRAY, true);
     public EnumSetting<DescriptionMode> showDescription = enm("Description", "Description mode", DescriptionMode.Center);
     public BooleanSetting outline = bool("Outline", "Outline frames", true);
-    public BooleanSetting showCount = bool("Show Count", "Show module count", true);
-    public NumberSetting categoryHeight = num("Category Height", "Max visible height", 50, 500, 200);
-    public EnumSetting<ScrollMode> scrollMode = enm("Scroll Mode", "Scroll behavior", ScrollMode.Normal);
-    public NumberSetting scrollSpeed = num("Scroll Speed", () -> scrollMode.get() == ScrollMode.Normal, 1, 50, 10);
+    public BooleanSetting showCount = bool("ShowCount", "Show module count", true);
     public BooleanSetting blur = bool("Blur", "Blur background", false);
     public BooleanSetting darken = bool("Darken", "Darken background", true);
-    public NumberSetting darkenStrength = num("Darken Strength", () -> darken.get(), 0, 255, 120);
-    public ColorSetting backgroundGradient = color("Background Gradient", new Color(0, 0, 0, 90), true);
+    public NumberSetting darkenStrength = num("DarkenStrength", () -> darken.get(), 0, 255, 120);
+    public ColorSetting backgroundGradient = color("BackgroundGradient", new Color(0, 0, 0, 90), true);
 
     public GUI() {
         super("GUI", "Opens the click gui", Category.CLIENT);
-        INSTANCE = this;
+        instance = this;
         setBind(GLFW.GLFW_KEY_RIGHT_SHIFT);
+    }
+
+    public static GUI get() {
+        return instance;
     }
 
     @Override
     public void onEnable() {
-        MC.gui.setScreen(GUIScreen.getInstance());
+        GUIScreen.getInstance().open();
+    }
+
+    @Override
+    public void onDisable() {
+        if (MC.gui.screen() instanceof GUIScreen screen) {
+            screen.startClosing();
+        }
     }
 
     public int getTextOffset() {
@@ -68,16 +78,13 @@ public class GUI extends Module {
         Off, Center
     }
 
-    public enum ScrollMode {
-        Normal, PYZO
-    }
-
-    @Getter
     public enum GearStyle {
         Plus("+", "-"),
         Custom("+", "-");
 
+        @Getter
         private final String closed;
+        @Getter
         private final String open;
 
         GearStyle(String closed, String open) {

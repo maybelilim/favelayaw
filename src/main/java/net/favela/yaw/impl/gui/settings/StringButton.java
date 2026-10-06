@@ -5,6 +5,7 @@ import net.favela.yaw.impl.modules.categories.client.GUI;
 import net.favela.yaw.impl.setting.settings.StringSetting;
 import net.favela.yaw.impl.util.render.RenderUtil;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import org.lwjgl.glfw.GLFW;
 
 import java.awt.Color;
 
@@ -23,7 +24,7 @@ public class StringButton extends Button {
         super.render(ctx, mx, my, delta, alpha);
         float o = openAnim.to(isOpen() ? 1f : 0f, 20f);
         if (o > 0.001f) {
-            Color theme = GUI.INSTANCE.theme.get();
+            Color theme = GUI.get().theme.get();
             RenderUtil.rect(ctx, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
                     new Color(theme.getRed(), theme.getGreen(), theme.getBlue(),
                             (int) (theme.getAlpha() * 0.5f * o * (alpha / 255f))).getRGB());
@@ -46,18 +47,24 @@ public class StringButton extends Button {
 
     @Override
     public void onKeyPressed(int key) {
-        if (isOpen()) {
-            if (key == 259 && !displayText.isEmpty()) displayText = displayText.substring(0, displayText.length() - 1);
-            else if (key == 257) {
+        if (!isOpen()) return;
+        switch (key) {
+            case GLFW.GLFW_KEY_BACKSPACE -> {
+                if (!displayText.isEmpty()) {
+                    displayText = displayText.substring(0, displayText.length() - 1);
+                }
+            }
+            case GLFW.GLFW_KEY_ENTER -> {
                 setting.set(displayText);
                 setOpen(false);
-            } else if (key == 256) setOpen(false);
+            }
+            case GLFW.GLFW_KEY_ESCAPE -> setOpen(false);
         }
     }
 
     @Override
     public void onCharTyped(char typedChar, int keyCode) {
-        if (isOpen()) displayText = displayText + typedChar;
+        if (isOpen()) displayText += typedChar;
     }
 
     @Override

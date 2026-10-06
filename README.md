@@ -25,7 +25,7 @@ A modern Minecraft client base for latest versions.
 
 ## FAQ
 - **ClickGUI:** Right Shift
-- **Command prefix:** `.`
+- **Command prefix:** `!`
 - **Minecraft:** 26.2
 - **Java:** 25
 - **Fabric Loader:** 0.19.3

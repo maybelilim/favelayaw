@@ -14,35 +14,28 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import org.lwjgl.glfw.GLFW;
 
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import org.lwjgl.glfw.GLFW;
 
 public class GUIScreen extends Screen {
 
-    private static GUIScreen INSTANCE;
-    public final ArrayList<Frame> frames = new ArrayList<>();
-    private boolean flag = false;
+    private static GUIScreen instance;
+
+    private final ArrayList<Frame> frames = new ArrayList<>();
     private final Timer timer = new Timer();
+    private final Minecraft mc = Minecraft.getInstance();
+    private final Anim screenAnim = new Anim(0f);
+
     @Setter
     @Getter
     private static Color colorClipboard = null;
-    private final Minecraft mc = Minecraft.getInstance();
-    private final String[] trayButtonNames = new String[]{"combat", "misc", "movement", "render", "player", "client"};
-    private final Map<String, Identifier> texturesOff = new HashMap<>();
-    private final Map<String, Identifier> texturesOn = new HashMap<>();
-    private final Map<String, Boolean> buttonStates = new HashMap<>();
-    private float trayX;
-    private float trayY;
+
+    private boolean blink = false;
+    private boolean closing = false;
     private boolean searchActive = false;
     private String searchQuery = "";
-
-    private final Anim screenAnim = new Anim(0f);
-    private boolean closing = false;
 
     private GUIScreen() {
         super(Component.literal("GUIModule"));
@@ -50,25 +43,22 @@ public class GUIScreen extends Screen {
     }
 
     public static GUIScreen getInstance() {
-        if (INSTANCE == null) INSTANCE = new GUIScreen();
-        return INSTANCE;
+        if (instance == null) instance = new GUIScreen();
+        return instance;
     }
 
-    private void load() {
-        int totalWidth = (104 + GUI.INSTANCE.width.getInt()) * 6 + 3 * 5;
-        int x = (mc.getWindow().getGuiScaledWidth() - totalWidth) / 2;
-        x -= 60;
-        if (x < 5) x = 5;
-        for (Module.Category category : Module.Category.values()) {
-            if (category == Module.Category.HUD) continue;
-            frames.add(new Frame(category, x, 50));
-            x += 104 + GUI.INSTANCE.width.getInt() + 3;
-            buttonStates.put(category.name().toLowerCase(), true);
-        }
+    public String getSym() {
+        return blink ? "_" : "";
     }
 
-    @Override
-    public void onClose() {
+    public void open() {
+        closing = false;
+        searchActive = false;
+        searchQuery = "";
+        mc.gui.setScreen(this);
+    }
+
+    public void startClosing() {
         if (closing) return;
         closing = true;
         searchActive = false;
@@ -76,16 +66,31 @@ public class GUIScreen extends Screen {
         applySearch();
     }
 
+    @Override
+    public void onClose() {
+        startClosing();
+    }
+
     private void finishClose() {
         closing = false;
         screenAnim.set(0f);
         super.onClose();
-        if (GUI.INSTANCE.isEnabled()) GUI.INSTANCE.toggle();
+        if (GUI.get().isEnabled()) GUI.get().toggle();
+    }
+
+    private void load() {
+        int totalWidth = (104 + GUI.get().width.getInt()) * 6 + 3 * 5;
+        int x = Math.max(5, (mc.getWindow().getGuiScaledWidth() - totalWidth) / 2 - 60);
+        for (Module.Category category : Module.Category.values()) {
+            if (category == Module.Category.HUD) continue;
+            frames.add(new Frame(category, x, 50));
+            x += 104 + GUI.get().width.getInt() + 3;
+        }
     }
 
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-        if (mc.level != null && GUI.INSTANCE.blur.get()) {
+        if (mc.level != null && GUI.get().blur.get()) {
             mc.options.menuBackgroundBlurriness().set(5);
             graphics.blurBeforeThisStratum();
         }
@@ -95,20 +100,18 @@ public class GUIScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         float fade = screenAnim.to(closing ? 0f : 1f, 20f);
         int alpha = (int) (255 * fade);
-        if (GUI.INSTANCE.darken.get()) {
-            int darkAlpha = (int) (GUI.INSTANCE.darkenStrength.getInt() * fade);
+        if (GUI.get().darken.get()) {
+            int darkAlpha = (int) (GUI.get().darkenStrength.getInt() * fade);
             RenderUtil.rect(graphics, 0, 0, graphics.guiWidth(), graphics.guiHeight(), new Color(0, 0, 0, darkAlpha).getRGB());
         }
-        Color grad = GUI.INSTANCE.backgroundGradient.get();
+        Color grad = GUI.get().backgroundGradient.get();
         RenderUtil.verticalGradient(graphics, 0, 0, graphics.guiWidth(), graphics.guiHeight(),
                 new Color(0, 0, 0, 0),
                 new Color(grad.getRed(), grad.getGreen(), grad.getBlue(), (int) (grad.getAlpha() * fade)));
         if (timer.passedMs(500)) {
-            flag = !flag;
+            blink = !blink;
             timer.reset();
         }
-        trayX = (graphics.guiWidth() - trayButtonNames.length * 16) / 2f;
-        trayY = graphics.guiHeight() - 16;
         for (Frame frame : frames) {
             if (!frame.isVisible()) continue;
             frame.render(graphics, mouseX, mouseY, delta, alpha);
@@ -127,18 +130,20 @@ public class GUIScreen extends Screen {
 
     private void renderSearchBar(GuiGraphicsExtractor context, int alpha) {
         int barW = 180;
-        int barH = 12 + GUI.INSTANCE.height.getInt();
+        int barH = 12 + GUI.get().height.getInt();
         int barX = (context.guiWidth() - barW) / 2;
         int barY = 16;
-        Color theme = GUI.INSTANCE.theme.get();
+        Color theme = GUI.get().theme.get();
+        float fade = alpha / 255f;
         RenderUtil.rect(context, barX - 1, barY - 1, barX + barW + 1, barY + barH + 1,
-                new Color(theme.getRed(), theme.getGreen(), theme.getBlue(), (int) (theme.getAlpha() * (alpha / 255f))).getRGB());
-        RenderUtil.rect(context, barX, barY, barX + barW, barY + barH, new Color(0, 0, 0, (int) (200 * (alpha / 255f))).getRGB());
-        String display = searchQuery + (flag ? "_" : "");
-        context.text(mc.font, display, barX + 3, barY + GUI.INSTANCE.getTextOffset(), new Color(255, 255, 255, alpha).getRGB(), true);
-        if (searchQuery.isEmpty()) {
-            context.text(mc.font, "search...", barX + 3, barY + GUI.INSTANCE.getTextOffset(), new Color(120, 120, 120, alpha).getRGB(), true);
-        }
+                new Color(theme.getRed(), theme.getGreen(), theme.getBlue(), (int) (theme.getAlpha() * fade)).getRGB());
+        RenderUtil.rect(context, barX, barY, barX + barW, barY + barH, new Color(0, 0, 0, (int) (200 * fade)).getRGB());
+        String display = searchQuery.isEmpty() ? "search..." : searchQuery;
+        display += blink ? "_" : "";
+        int textColor = searchQuery.isEmpty()
+                ? new Color(120, 120, 120, alpha).getRGB()
+                : new Color(255, 255, 255, alpha).getRGB();
+        context.text(mc.font, display, barX + 3, barY + GUI.get().getTextOffset(), textColor, true);
     }
 
     private void applySearch() {
@@ -148,27 +153,12 @@ public class GUIScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (closing) return true;
-        double mouseX = event.x();
-        double mouseY = event.y();
+        int mouseX = (int) event.x();
+        int mouseY = (int) event.y();
         int button = event.button();
-        if (button == 0) {
-            for (int i = 0; i < trayButtonNames.length; i++) {
-                String name = trayButtonNames[i];
-                float buttonX = trayX + i * 16;
-                float buttonY = trayY;
-                if (mouseX < buttonX || mouseX > buttonX + 16 || mouseY < buttonY || mouseY > buttonY + 16) continue;
-                boolean newState = !buttonStates.getOrDefault(name, false);
-                buttonStates.put(name, newState);
-                for (Frame frame : frames) {
-                    if (!frame.getName().toLowerCase().equals(name)) continue;
-                    frame.setVisible(newState);
-                }
-                return true;
-            }
-        }
         for (Frame frame : frames) {
             if (!frame.isVisible()) continue;
-            frame.mouseClicked((int) mouseX, (int) mouseY, button);
+            frame.mouseClicked(mouseX, mouseY, button);
         }
         return super.mouseClicked(event, doubleClick);
     }
@@ -182,18 +172,13 @@ public class GUIScreen extends Screen {
     @Override
     public boolean keyPressed(KeyEvent event) {
         int keyCode = event.key();
-        if (keyCode == GLFW.GLFW_KEY_F) {
-            long handle = mc.getWindow().handle();
-            boolean ctrl = GLFW.glfwGetKey(handle, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
-                    || GLFW.glfwGetKey(handle, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
-            if (ctrl) {
-                searchActive = !searchActive;
-                if (!searchActive) {
-                    searchQuery = "";
-                    applySearch();
-                }
-                return true;
+        if (keyCode == GLFW.GLFW_KEY_F && isControlDown()) {
+            searchActive = !searchActive;
+            if (!searchActive) {
+                searchQuery = "";
+                applySearch();
             }
+            return true;
         }
         if (searchActive) {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
@@ -211,10 +196,12 @@ public class GUIScreen extends Screen {
         }
         for (Frame frame : frames) {
             if (!frame.isOpen()) continue;
-            if (keyCode == 265) frame.setY(frame.getY() - 10);
-            if (keyCode == 264) frame.setY(frame.getY() + 10);
-            if (keyCode == 263) frame.setX(frame.getX() - 10);
-            if (keyCode == 262) frame.setX(frame.getX() + 10);
+            switch (keyCode) {
+                case GLFW.GLFW_KEY_UP -> frame.setY(frame.getY() - 10);
+                case GLFW.GLFW_KEY_DOWN -> frame.setY(frame.getY() + 10);
+                case GLFW.GLFW_KEY_LEFT -> frame.setX(frame.getX() - 10);
+                case GLFW.GLFW_KEY_RIGHT -> frame.setX(frame.getX() + 10);
+            }
             frame.onKeyPressed(keyCode);
         }
         return super.keyPressed(event);
@@ -230,7 +217,7 @@ public class GUIScreen extends Screen {
     public boolean charTyped(CharacterEvent event) {
         if (searchActive) {
             char c = (char) event.codepoint();
-            if (c >= 32 && c < 127) {
+            if (!Character.isISOControl(c)) {
                 searchQuery += c;
                 applySearch();
             }
@@ -243,11 +230,7 @@ public class GUIScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         for (Frame frame : frames) {
-            if (GUI.INSTANCE.scrollMode.get() == GUI.ScrollMode.PYZO) {
-                frame.mouseScrolled(mouseX, mouseY, vertical);
-            } else {
-                frame.setY((int) (frame.getY() + vertical * 25.0));
-            }
+            frame.setY((int) (frame.getY() + vertical * 25.0));
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
@@ -257,7 +240,9 @@ public class GUIScreen extends Screen {
         return false;
     }
 
-    public String getSym() {
-        return flag ? "_" : "";
+    private boolean isControlDown() {
+        long handle = mc.getWindow().handle();
+        return GLFW.glfwGetKey(handle, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
+                || GLFW.glfwGetKey(handle, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
     }
 }

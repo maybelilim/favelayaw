@@ -13,9 +13,9 @@ import net.favela.yaw.impl.setting.settings.NumberSetting;
 import net.favela.yaw.impl.setting.settings.SetSetting;
 import net.favela.yaw.impl.setting.settings.StringSetting;
 import net.favela.yaw.impl.util.animation.Anim;
+import net.favela.yaw.impl.util.keyboard.Keybinding;
 import net.favela.yaw.impl.util.render.RenderUtil;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import org.lwjgl.glfw.GLFW;
 
 import java.awt.Color;
 import java.util.ArrayList;
@@ -32,20 +32,23 @@ public class ModuleButton extends Button {
     private boolean hidden;
 
     private final Anim enableAnim = new Anim(0f);
-
     private final Anim descAnim = new Anim(0f);
 
     public ModuleButton(Module module) {
         super(module.getName());
         this.module = module;
         for (Setting<?> set : module.getSettings()) {
-            if (set instanceof BooleanSetting bs) settings.add(new BooleanButton(bs, this));
-            else if (set instanceof StringSetting ss) settings.add(new StringButton(ss, this));
-            else if (set instanceof NumberSetting ns) settings.add(new SliderButton(ns, this));
-            else if (set instanceof ColorSetting cs) settings.add(new ColorButton(cs, this));
-            else if (set instanceof BindSetting bd) settings.add(new BindButton(bd, this));
-            else if (set instanceof EnumSetting<?> es) settings.add(new EnumButton(es, this));
-            else if (set instanceof SetSetting<?> st) settings.add(new ArrayButton(st, this));
+            Button button = switch (set) {
+                case BooleanSetting s -> new BooleanButton(s, this);
+                case StringSetting s -> new StringButton(s, this);
+                case NumberSetting s -> new SliderButton(s, this);
+                case ColorSetting s -> new ColorButton(s, this);
+                case BindSetting s -> new BindButton(s, this);
+                case EnumSetting<?> s -> new EnumButton(s, this);
+                case SetSetting<?> s -> new ArrayButton(s, this);
+                default -> null;
+            };
+            if (button != null) settings.add(button);
         }
     }
 
@@ -55,49 +58,51 @@ public class ModuleButton extends Button {
 
     @Override
     public void render(GuiGraphicsExtractor context, int mouseX, int mouseY, float t, int alpha) {
-        boolean hoveredNow = isHovering(mouseX, mouseY);
-        Color theme = GUI.INSTANCE.theme.get();
+        Color theme = GUI.get().theme.get();
+        float fade = alpha / 255f;
 
-        float hover = hoverAnim.to(hoveredNow ? 1f : 0f, 25f);
+        float hover = hoverAnim.to(isHovering(mouseX, mouseY) ? 1f : 0f, 25f);
         float enabled = enableAnim.to(module.isEnabled() ? 1f : 0f, 20f);
 
-        if (GUI.INSTANCE.darkBackground.get()) {
+        if (GUI.get().darkBackground.get()) {
             RenderUtil.rect(context, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-                    new Color(0, 0, 0, (int) (60 * (alpha / 255f))).getRGB());
+                    new Color(0, 0, 0, (int) (60 * fade)).getRGB());
         }
         if (enabled > 0.001f) {
             RenderUtil.rect(context, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
                     new Color(theme.getRed(), theme.getGreen(), theme.getBlue(),
-                            (int) (theme.getAlpha() * enabled * (alpha / 255f))).getRGB());
+                            (int) (theme.getAlpha() * enabled * fade)).getRGB());
         }
         if (hover > 0.001f) {
             RenderUtil.rect(context, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-                    new Color(255, 255, 255, (int) (50 * hover * (alpha / 255f))).getRGB());
+                    new Color(255, 255, 255, (int) (50 * hover * fade)).getRGB());
         }
 
         int textCol;
-        if (GUI.INSTANCE.text.get() == GUI.Text.Custom) {
-            Color c = module.isEnabled() ? GUI.INSTANCE.enabledText.get() : GUI.INSTANCE.disabledText.get();
-            textCol = new Color(c.getRed(), c.getGreen(), c.getBlue(), (int) (c.getAlpha() * (alpha / 255f))).getRGB();
+        if (GUI.get().text.get() == GUI.Text.Custom) {
+            Color c = module.isEnabled() ? GUI.get().enabledText.get() : GUI.get().disabledText.get();
+            textCol = new Color(c.getRed(), c.getGreen(), c.getBlue(), (int) (c.getAlpha() * fade)).getRGB();
         } else {
             textCol = new Color(255, 255, 255, alpha).getRGB();
         }
 
-        String prefix = (GUI.INSTANCE.text.get() == GUI.Text.Separate && !module.isEnabled()) ? "\u00a77" : "";
-
+        String prefix = (GUI.get().text.get() == GUI.Text.Separate && !module.isEnabled()) ? "\u00a77" : "";
         drawString(context, prefix + module.getName(), getX() + 2, getY(), textCol, alpha);
 
-        if (GUI.INSTANCE.gear.get()) {
-            GUI.GearStyle style = GUI.INSTANCE.gearStyle.get();
+        if (GUI.get().gear.get()) {
+            GUI.GearStyle style = GUI.get().gearStyle.get();
             String sym;
-            if (style == GUI.GearStyle.Custom) sym = isOpen() ? GUI.INSTANCE.gearOpen.get() : GUI.INSTANCE.gearClosed.get();
-            else sym = isOpen() ? style.getOpen() : style.getClosed();
+            if (style == GUI.GearStyle.Custom) {
+                sym = isOpen() ? GUI.get().gearOpen.get() : GUI.get().gearClosed.get();
+            } else {
+                sym = isOpen() ? style.getOpen() : style.getClosed();
+            }
             drawString(context, sym, getX() + getWidth() - 2 - width(sym), getY(), new Color(255, 255, 255, alpha).getRGB(), alpha);
         }
 
-        if (GUI.INSTANCE.binds.get() && module.bind.getKey() != -1) {
-            String bind = "[" + formatBind(module.bind.getKey()) + "]";
-            drawString(context, bind, getX() + 2 + width(module.getName()), getY() + 3, new Color(255, 255, 255, alpha).getRGB(), alpha);
+        if (GUI.get().binds.get() && module.bind.getKey() != -1) {
+            String bind = "[" + Keybinding.format(module.bind.getKey()) + "]";
+            drawString(context, bind, getX() + 2 + width(module.getName()), getY(), new Color(255, 255, 255, alpha).getRGB(), alpha);
         }
 
         float targetItem = 0f;
@@ -125,7 +130,7 @@ public class ModuleButton extends Button {
             }
             if (enabled > 0.001f) {
                 int borderCol = new Color(theme.getRed(), theme.getGreen(), theme.getBlue(),
-                        (int) (theme.getAlpha() * enabled * (alpha / 255f))).getRGB();
+                        (int) (theme.getAlpha() * enabled * fade)).getRGB();
                 RenderUtil.rect(context, getX(), getY() + getHeight(), getX() + 1, getY() + getHeight() + itemHeight, borderCol);
                 RenderUtil.rect(context, getX() + getWidth() - 1, getY() + getHeight(), getX() + getWidth(), getY() + getHeight() + itemHeight, borderCol);
                 RenderUtil.rect(context, getX(), getY() + getHeight() + itemHeight, getX() + getWidth(), getY() + getHeight() + itemHeight + 1, borderCol);
@@ -135,7 +140,7 @@ public class ModuleButton extends Button {
     }
 
     public void renderTooltip(GuiGraphicsExtractor context, int mouseX, int mouseY) {
-        GUI.DescriptionMode mode = GUI.INSTANCE.showDescription.get();
+        GUI.DescriptionMode mode = GUI.get().showDescription.get();
         boolean show = !hidden
                 && !module.getDescription().isEmpty()
                 && mode != GUI.DescriptionMode.Off
@@ -153,14 +158,6 @@ public class ModuleButton extends Button {
         drawString(ctx, module.getDescription(), x, 4, new Color(255, 255, 255, a).getRGB(), a);
     }
 
-    private String formatBind(int key) {
-        if (key == -1) return "NONE";
-        if (key < -1) return "MOUSE " + (-key - 1);
-        String name = GLFW.glfwGetKeyName(key, 0);
-        if (name != null) return name.toUpperCase();
-        return "KEY " + key;
-    }
-
     @Override
     public void mouseClicked(int mx, int my, int btn) {
         if (isHovering(mx, my)) {
@@ -168,36 +165,54 @@ public class ModuleButton extends Button {
             else if (btn == 1) setOpen(!isOpen());
         }
         if (!isOpen()) return;
-        for (Button b : settings) if (b.getSetting().isVisible()) b.mouseClicked(mx, my, btn);
+        for (Button b : settings) {
+            if (b.getSetting().isVisible()) b.mouseClicked(mx, my, btn);
+        }
     }
 
     @Override
     public void mouseReleased(int mx, int my, int btn) {
-        if (isOpen()) for (Button b : settings) if (b.getSetting().isVisible()) b.mouseReleased(mx, my, btn);
+        if (isOpen()) {
+            for (Button b : settings) {
+                if (b.getSetting().isVisible()) b.mouseReleased(mx, my, btn);
+            }
+        }
     }
 
     @Override
     public void onKeyPressed(int code) {
-        if (isOpen()) for (Button b : settings) if (b.getSetting().isVisible()) b.onKeyPressed(code);
+        if (isOpen()) {
+            for (Button b : settings) {
+                if (b.getSetting().isVisible()) b.onKeyPressed(code);
+            }
+        }
     }
 
     @Override
     public void keyReleased(int code) {
-        if (isOpen()) for (Button b : settings) if (b.getSetting().isVisible()) b.keyReleased(code);
+        if (isOpen()) {
+            for (Button b : settings) {
+                if (b.getSetting().isVisible()) b.keyReleased(code);
+            }
+        }
     }
 
     @Override
     public void onCharTyped(char c, int m) {
-        if (isOpen()) for (Button b : settings) if (b.getSetting().isVisible()) b.onCharTyped(c, m);
+        if (isOpen()) {
+            for (Button b : settings) {
+                if (b.getSetting().isVisible()) b.onCharTyped(c, m);
+            }
+        }
     }
 
     @Override
     public int getWidth() {
-        return 98 + GUI.INSTANCE.width.getInt();
+        return 98 + GUI.get().width.getInt();
     }
 
     @Override
     public int getHeight() {
-        return 12 + GUI.INSTANCE.height.getInt();
+        return 12 + GUI.get().height.getInt();
     }
 }

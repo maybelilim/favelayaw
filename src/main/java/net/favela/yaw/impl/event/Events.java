@@ -1,17 +1,14 @@
 package net.favela.yaw.impl.event;
 
+import net.favela.yaw.impl.util.log.Log;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public final class Events {
-    private Events() {
-    }
 
-    private static final Logger LOGGER = Logger.getLogger(Events.class.getName());
     private static final Map<Class<?>, CopyOnWriteArrayList<Handler<?>>> HANDLERS = new ConcurrentHashMap<>();
 
     public record Handler<T extends Event>(
@@ -22,8 +19,18 @@ public final class Events {
     ) {
     }
 
+    private Events() {
+
+    }
+
+    public static <T extends Event> Handler<T> handler(Class<T> type, Consumer<T> action) {
+        return new Handler<>(type, Priority.NORMAL, false, action);
+    }
+
     public static <T extends Event> Handler<T> on(Class<T> type, Consumer<T> action) {
-        return on(type, Priority.NORMAL, false, action);
+        Handler<T> handler = handler(type, action);
+        register(handler);
+        return handler;
     }
 
     public static <T extends Event> Handler<T> on(Class<T> type, Priority priority, Consumer<T> action) {
@@ -33,8 +40,13 @@ public final class Events {
     public static <T extends Event> Handler<T> on(Class<T> type, Priority priority,
                                                   boolean receiveCancelled, Consumer<T> action) {
         Handler<T> handler = new Handler<>(type, priority, receiveCancelled, action);
+        register(handler);
+        return handler;
+    }
+
+    public static void register(Handler<?> handler) {
         CopyOnWriteArrayList<Handler<?>> list =
-                HANDLERS.computeIfAbsent(type, k -> new CopyOnWriteArrayList<>());
+                HANDLERS.computeIfAbsent(handler.type(), k -> new CopyOnWriteArrayList<>());
 
         synchronized (list) {
             int i = 0;
@@ -44,14 +56,13 @@ public final class Events {
             }
             list.add(i, handler);
         }
-        return handler;
     }
 
     public static void off(Handler<?> handler) {
         CopyOnWriteArrayList<Handler<?>> list = HANDLERS.get(handler.type());
         if (list == null) return;
         list.remove(handler);
-        if (list.isEmpty()) HANDLERS.remove(handler.type());
+        if (list.isEmpty()) HANDLERS.remove(handler.type(), list);
     }
 
     @SuppressWarnings("unchecked")
@@ -67,8 +78,7 @@ public final class Events {
             try {
                 ((Handler<T>) handler).action().accept(event);
             } catch (Throwable t) {
-                LOGGER.log(Level.SEVERE,
-                        "[Events] Handler threw for " + event.getClass().getSimpleName(), t);
+                Log.error("Handler threw for {}", event.getClass().getSimpleName(), t);
             }
         }
         return event;

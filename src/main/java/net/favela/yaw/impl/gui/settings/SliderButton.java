@@ -6,6 +6,7 @@ import net.favela.yaw.impl.setting.settings.NumberSetting;
 import net.favela.yaw.impl.util.animation.Anim;
 import net.favela.yaw.impl.util.render.RenderUtil;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import org.lwjgl.glfw.GLFW;
 
 import java.awt.Color;
 import java.math.BigDecimal;
@@ -17,7 +18,7 @@ public class SliderButton extends Button {
     private final Number max;
     private final NumberSetting setting;
     private boolean drag;
-    public String displayText = "";
+    private String displayText = "";
 
     private final Anim fillAnim = new Anim(0f);
 
@@ -35,7 +36,7 @@ public class SliderButton extends Button {
         float fill = setting.get().floatValue() <= min.floatValue() ? 0f : partialMultiplier();
         float animated = fillAnim.to(fill, 25f);
         float fillW = Math.max(1f, getWidth() * animated);
-        Color theme = GUI.INSTANCE.theme.get();
+        Color theme = GUI.get().theme.get();
         RenderUtil.rect(ctx, getX(), getY(), getX() + fillW, getY() + getHeight(),
                 new Color(theme.getRed(), theme.getGreen(), theme.getBlue(),
                         (int) (theme.getAlpha() * (alpha / 255f))).getRGB());
@@ -64,37 +65,44 @@ public class SliderButton extends Button {
 
     @Override
     public void onKeyPressed(int key) {
-        if (isOpen()) {
-            if (key == 259 && !displayText.isEmpty()) {
-                displayText = displayText.substring(0, displayText.length() - 1);
-            } else if (key == 257) {
+        if (!isOpen()) return;
+        switch (key) {
+            case GLFW.GLFW_KEY_BACKSPACE -> {
+                if (!displayText.isEmpty()) {
+                    displayText = displayText.substring(0, displayText.length() - 1);
+                }
+            }
+            case GLFW.GLFW_KEY_ENTER -> {
                 try {
-                    if (setting.get() instanceof Float) setting.set(Float.valueOf(displayText));
-                    else if (setting.get() instanceof Double) setting.set(Double.valueOf(displayText));
-                    else if (setting.get() instanceof Long) setting.set(Long.valueOf(displayText));
-                    else if (setting.get() instanceof Integer) setting.set(Integer.valueOf(displayText));
+                    switch (setting.get()) {
+                        case Float ignored -> setting.set(Float.valueOf(displayText));
+                        case Double ignored -> setting.set(Double.valueOf(displayText));
+                        case Long ignored -> setting.set(Long.valueOf(displayText));
+                        case Integer ignored -> setting.set(Integer.valueOf(displayText));
+                        default -> {
+                        }
+                    }
                     displayText = "";
                     setOpen(false);
-                } catch (Exception e) {
+                } catch (NumberFormatException e) {
                     displayText = "";
                     setOpen(false);
                 }
-            } else if (key == 256) {
-                setOpen(false);
             }
+            case GLFW.GLFW_KEY_ESCAPE -> setOpen(false);
         }
     }
 
     @Override
     public void onCharTyped(char typedChar, int keyCode) {
-        if (isOpen()) {
-            if (Character.isDigit(typedChar)) {
-                displayText = displayText + typedChar;
-            } else if (!(displayText.contains(".") || typedChar != '.' && typedChar != ',' || setting.get() instanceof Integer || setting.get() instanceof Long)) {
-                displayText = displayText + ".";
-            } else if (!displayText.contains("-") && typedChar == '-') {
-                displayText = displayText + "-";
-            }
+        if (!isOpen()) return;
+        if (Character.isDigit(typedChar)) {
+            displayText += typedChar;
+        } else if (typedChar == '-' && !displayText.contains("-")) {
+            displayText = displayText + "-";
+        } else if ((typedChar == '.' || typedChar == ',') && !displayText.contains(".")
+                && !(setting.get() instanceof Integer) && !(setting.get() instanceof Long)) {
+            displayText = displayText + ".";
         }
     }
 
@@ -109,40 +117,33 @@ public class SliderButton extends Button {
     }
 
     private void drag(int mouseX) {
-        int scale = getStep(setting.getStep().floatValue());
-        float percent = (mouseX - getX()) / (float) getWidth();
-        if (setting.get() instanceof Integer) {
-            int result = (int) Math.max(min.intValue(), Math.min(max.intValue(), min.floatValue() + percent * (max.intValue() - min.intValue())));
-            setting.set(result);
-        } else if (setting.get() instanceof Float) {
-            float result = Math.max(min.floatValue(), Math.min(max.floatValue(), min.floatValue() + percent * (max.floatValue() - min.floatValue())));
-            result = new BigDecimal(result).setScale(scale, RoundingMode.HALF_UP).floatValue();
-            setting.set(result);
-        } else if (setting.get() instanceof Double) {
-            double result = Math.max(min.doubleValue(), Math.min(max.doubleValue(), min.doubleValue() + percent * (max.doubleValue() - min.doubleValue())));
-            result = new BigDecimal(result).setScale(scale, RoundingMode.HALF_UP).doubleValue();
-            setting.set(result);
+        int scale = decimalPlaces(setting.getStep().floatValue());
+        float percent = Math.clamp((mouseX - getX()) / (float) getWidth(), 0f, 1f);
+        switch (setting.get()) {
+            case Integer ignored -> setting.set((int) (min.floatValue() + percent * (max.intValue() - min.intValue())));
+            case Float ignored -> setting.set(round(min.floatValue() + percent * (max.floatValue() - min.floatValue()), scale));
+            case Double ignored -> setting.set(round(min.doubleValue() + percent * (max.doubleValue() - min.doubleValue()), scale));
+            default -> {
+            }
         }
-        if (mouseX < getX() + 1) setting.set(min);
-        else if (mouseX > getX() + getWidth() - 1) setting.set(max);
     }
 
-    public static int getStep(float number) {
+    private static float round(float value, int scale) {
+        return new BigDecimal(value).setScale(scale, RoundingMode.HALF_UP).floatValue();
+    }
+
+    private static double round(double value, int scale) {
+        return new BigDecimal(value).setScale(scale, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private static int decimalPlaces(float number) {
         String string = Float.toString(number);
-        int i = string.indexOf(46);
+        int i = string.indexOf('.');
         if (i == -1) return 0;
         return string.length() - i - 1;
     }
 
-    private float middle() {
-        return max.floatValue() - min.floatValue();
-    }
-
-    private float part() {
-        return setting.get().floatValue() - min.floatValue();
-    }
-
     private float partialMultiplier() {
-        return part() / middle();
+        return (setting.get().floatValue() - min.floatValue()) / (max.floatValue() - min.floatValue());
     }
 }

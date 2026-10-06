@@ -9,14 +9,17 @@ import net.favela.yaw.impl.setting.settings.NumberSetting;
 import net.favela.yaw.impl.util.render.RenderUtil;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
+
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import static net.favela.yaw.impl.util.wrapper.Wrapper.MC;
 
 public abstract class Hud extends Module {
 
-    private static final ArrayList<Hud> HUD_MODULES = new ArrayList<>();
+    private static final List<Hud> HUD_MODULES = new ArrayList<>();
 
     private final NumberSetting posX = num("PosX", () -> false, 0f, 1f, 0.5f);
     private final NumberSetting posY = num("PosY", () -> false, 0f, 1f, 0.5f);
@@ -35,8 +38,8 @@ public abstract class Hud extends Module {
         HUD_MODULES.add(this);
     }
 
-    public static ArrayList<Hud> getHudModules() {
-        return HUD_MODULES;
+    public static List<Hud> getHudModules() {
+        return Collections.unmodifiableList(HUD_MODULES);
     }
 
     public static void renderAll(GuiGraphicsExtractor context) {
@@ -45,18 +48,28 @@ public abstract class Hud extends Module {
         }
     }
 
-    public void render(GuiGraphicsExtractor context) {}
+    public void render(GuiGraphicsExtractor context) {
+    }
 
-    public float getPosX() { return posX.getFloat(); }
+    public float getPosX() {
+        return posX.getFloat();
+    }
 
-    public float getPosY() { return posY.getFloat(); }
+    public float getPosY() {
+        return posY.getFloat();
+    }
 
-    public void setPosX(float v) { posX.set(v); }
+    public void setPosX(float v) {
+        posX.set(v);
+    }
 
-    public void setPosY(float v) { posY.set(v); }
+    public void setPosY(float v) {
+        posY.set(v);
+    }
 
     public int getOffset() {
-        return HUD.getInstance() != null ? HUD.getInstance().offset.getInt() : 2;
+        HUD editor = HUD.getInstance();
+        return editor != null ? editor.offset.getInt() : 2;
     }
 
     public float getX() {
@@ -76,9 +89,9 @@ public abstract class Hud extends Module {
 
     public void renderEditor(GuiGraphicsExtractor context) {
         if (MC.player == null || MC.level == null) return;
-        HudEditorScreen editor = HudEditorScreen.getInstance();
         float x = getX();
         float y = getY();
+        HudEditorScreen editor = HudEditorScreen.getInstance();
         boolean shouldDrawDescription = isHovering() && !editor.anyHover;
         if (editor.currentDragging != null) {
             shouldDrawDescription = editor.currentDragging == this;
@@ -96,7 +109,7 @@ public abstract class Hud extends Module {
         if (editor.currentDragging == this) {
             RenderUtil.rect(context, x - 2, y - 2, x + width + 1, y + height + 1, new Color(255, 255, 255, 80).getRGB());
         }
-        Color theme = GUI.INSTANCE.theme.get();
+        Color theme = GUI.get().theme.get();
         int outlineCol = new Color(theme.getRed(), theme.getGreen(), theme.getBlue(), (int) (theme.getAlpha() * 0.8f)).getRGB();
         RenderUtil.drawRectOutline(context, (int) (x - 1), (int) (y - 1), (int) (x + width + 1), (int) (y + height + 1), outlineCol);
     }

@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import net.favela.yaw.impl.setting.Setting;
+import net.favela.yaw.impl.util.log.Log;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -47,10 +48,6 @@ public class SetSetting<T> extends Setting<Set<T>> {
         return type;
     }
 
-    public Set<T> getDefaultValues() {
-        return defaultValue;
-    }
-
     public boolean add(T value) { return this.value.add(value); }
     public boolean remove(T value) { return this.value.remove(value); }
     public boolean contains(T value) { return this.value.contains(value); }
@@ -92,7 +89,8 @@ public class SetSetting<T> extends Setting<Set<T>> {
                 else if (type == Long.class) value.add((T) Long.valueOf(e.getAsLong()));
                 else if (type == Boolean.class) value.add((T) Boolean.valueOf(e.getAsBoolean()));
                 else if (type.isEnum()) value.add((T) Enum.valueOf((Class) type, e.getAsString()));
-            } catch (Exception ignored) {
+            } catch (Exception ex) {
+                Log.warn("Skipping invalid value '{}' for set setting {}", e.getAsString(), getName());
             }
         }
     }

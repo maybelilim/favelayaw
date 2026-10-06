@@ -18,34 +18,29 @@ public class KeybindManager {
     }
 
     private void onTick(Minecraft client) {
-        if (client == null) return;
-
         long handle = client.getWindow().handle();
         boolean noScreen = client.gui.screen() == null;
 
         for (Module module : Manager.MODULE.getModules()) {
             int key = module.bind.getKey();
-            if (key <= 0) continue;
+            if (key == -1 || key == 0) continue;
 
-            boolean down = GLFW.glfwGetKey(handle, key) == GLFW.GLFW_PRESS;
-            boolean firstPress = down && !heldKeys.contains(key);
+            boolean down = isKeyDown(handle, key);
+            boolean firstPress = down && heldKeys.add(key);
 
             if (firstPress && noScreen) {
                 module.toggle();
             }
+            if (!down) {
+                heldKeys.remove(key);
+            }
         }
-
-        updateHeldKeys(handle);
     }
 
-    private void updateHeldKeys(long handle) {
-        for (Module module : Manager.MODULE.getModules()) {
-            int key = module.bind.getKey();
-            if (key <= 0) continue;
-
-            boolean down = GLFW.glfwGetKey(handle, key) == GLFW.GLFW_PRESS;
-            if (down) heldKeys.add(key);
-            else heldKeys.remove(key);
+    private static boolean isKeyDown(long handle, int key) {
+        if (key < 0) {
+            return GLFW.glfwGetMouseButton(handle, -key - 2) == GLFW.GLFW_PRESS;
         }
+        return GLFW.glfwGetKey(handle, key) == GLFW.GLFW_PRESS;
     }
 }

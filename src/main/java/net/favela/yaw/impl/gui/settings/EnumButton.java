@@ -30,8 +30,9 @@ public class EnumButton extends Button {
 
     @Override
     public void render(GuiGraphicsExtractor context, int mx, int my, float delta, int alpha) {
-        Color theme = GUI.INSTANCE.theme.get();
-        int col = new Color(theme.getRed(), theme.getGreen(), theme.getBlue(), (int) (theme.getAlpha() * (alpha / 255f))).getRGB();
+        Color theme = GUI.get().theme.get();
+        float fade = alpha / 255f;
+        int col = new Color(theme.getRed(), theme.getGreen(), theme.getBlue(), (int) (theme.getAlpha() * fade)).getRGB();
         RenderUtil.rect(context, getX(), getY(), getX() + getWidth(), getY() + getHeight(), col);
         renderHover(context, mx, my, alpha);
         drawString(context, setting.getName(), getX() + 2, getY(), new Color(255, 255, 255, alpha).getRGB(), alpha);
@@ -48,13 +49,14 @@ public class EnumButton extends Button {
             int yOff = getHeight();
             for (Enum<?> v : values) {
                 boolean rowHover = mx >= getX() && mx <= getX() + getWidth() && my >= getY() + yOff && my < getY() + yOff + mc.font.lineHeight;
-                if (setting.get() == v)
+                if (setting.get() == v) {
                     RenderUtil.rect(context, getX() + 2, getY() + yOff, getX() + getWidth() - 2, getY() + yOff + mc.font.lineHeight,
-                            new Color(theme.getRed(), theme.getGreen(), theme.getBlue(),
-                                    (int) (theme.getAlpha() * (alpha / 255f))).getRGB());
-                if (rowHover)
+                            new Color(theme.getRed(), theme.getGreen(), theme.getBlue(), (int) (theme.getAlpha() * fade)).getRGB());
+                }
+                if (rowHover) {
                     RenderUtil.rect(context, getX() + 2, getY() + yOff, getX() + getWidth() - 2, getY() + yOff + mc.font.lineHeight,
-                            new Color(255, 255, 255, (int) (30 * (alpha / 255f))).getRGB());
+                            new Color(255, 255, 255, (int) (30 * fade)).getRGB());
+                }
                 String text = (setting.get() == v ? "\u00a7a" : "\u00a77") + EnumConverter.getProperName(v);
                 int tw = width(text);
                 int cc = setting.get() == v ? 128 : 255;

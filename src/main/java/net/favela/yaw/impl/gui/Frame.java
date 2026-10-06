@@ -26,36 +26,37 @@ public class Frame {
     @Setter
     @Getter
     private int y;
-    private int x2;
-    private int y2;
-    private float itemHeight;
     @Getter
-    public boolean open;
-    public boolean drag;
+    private boolean open;
     @Setter
     @Getter
     private boolean visible = true;
+
+    private int dragXOffset;
+    private int dragYOffset;
+    private boolean dragging;
     private String searchQuery = "";
+    private String searchQueryLower = "";
 
     private final Minecraft mc = Minecraft.getInstance();
     private final ArrayList<ModuleButton> modules = new ArrayList<>();
-    private float scrollOffset = 0f;
 
     private final Anim openAnim = new Anim(0f);
-    private final Anim scrollAnim = new Anim(0f);
 
     public Frame(Module.Category category, int x, int y) {
         this.name = category.getName();
         this.x = x;
         this.y = y;
         this.open = true;
-        for (Module module : Manager.MODULE.getModulesByCategory(category))
+        for (Module module : Manager.MODULE.getModulesByCategory(category)) {
             this.modules.add(new ModuleButton(module));
+        }
         this.modules.sort(Comparator.comparing(Button::getName));
     }
 
     public void setSearchQuery(String query) {
         this.searchQuery = query == null ? "" : query;
+        this.searchQueryLower = this.searchQuery.toLowerCase();
     }
 
     private boolean isSearching() {
@@ -63,61 +64,64 @@ public class Frame {
     }
 
     private boolean matchesSearch(ModuleButton b) {
-        return b.getName().toLowerCase().contains(searchQuery.toLowerCase());
+        return b.getName().toLowerCase().contains(searchQueryLower);
+    }
+
+    private float contentHeight() {
+        float height = 0;
+        for (ModuleButton b : modules) {
+            if (b.isHidden()) continue;
+            if (isSearching() && !matchesSearch(b)) continue;
+            height += b.getHeight() + b.getItemHeight() + 1f + (b.isOpen() ? 1 : 0);
+        }
+        return height;
+    }
+
+    private boolean visible(ModuleButton b) {
+        return !b.isHidden() && (!isSearching() || matchesSearch(b));
     }
 
     public void render(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, int alpha) {
-        drag(mouseX, mouseY);
-        boolean searching = isSearching();
-        Color theme = GUI.INSTANCE.theme.get();
-
-        float fullH = 0;
-        for (ModuleButton b : modules) {
-            if (b.isHidden()) continue;
-            if (searching && !matchesSearch(b)) continue;
-            fullH += b.getHeight() + b.getItemHeight() + 1f + (b.isOpen() ? 1 : 0);
+        if (dragging) {
+            x = dragXOffset + mouseX;
+            y = dragYOffset + mouseY;
         }
+        boolean searching = isSearching();
+        Color theme = GUI.get().theme.get();
+        float fade = alpha / 255f;
+
+        float fullH = contentHeight();
         if (searching && fullH == 0) return;
 
         float factor = openAnim.to((open || searching) ? 1f : 0f, 25f);
-        boolean pyzo = GUI.INSTANCE.scrollMode.get() == GUI.ScrollMode.PYZO;
-        float visibleModuleHeight = Math.min(GUI.INSTANCE.categoryHeight.getInt(), fullH);
-        float frameContentHeight = visibleModuleHeight * factor;
-        float animatedHeight = pyzo ? frameContentHeight : fullH * factor;
-        float drawScroll = scrollAnim.to(scrollOffset, 30f);
+        float animatedHeight = fullH * factor;
 
         RenderUtil.rect(context,
-                getX() + (GUI.INSTANCE.outline.get() ? -1 : 0), getY(),
-                getX() + getWidth() + (GUI.INSTANCE.outline.get() ? 1 : 0),
-                getY() + getHeight() + 2 + (GUI.INSTANCE.outline.get() ? 1 : 0) + animatedHeight,
-                new Color(0, 0, 0, (int) (100 * (alpha / 255f))).getRGB());
+                getX() + (GUI.get().outline.get() ? -1 : 0), getY(),
+                getX() + getWidth() + (GUI.get().outline.get() ? 1 : 0),
+                getY() + getHeight() + 2 + (GUI.get().outline.get() ? 1 : 0) + animatedHeight,
+                new Color(0, 0, 0, (int) (100 * fade)).getRGB());
 
         RenderUtil.rect(context, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
                 new Color(theme.getRed(), theme.getGreen(), theme.getBlue(),
-                        (int) (theme.getAlpha() * (alpha / 255f))).getRGB());
+                        (int) (theme.getAlpha() * fade)).getRGB());
 
-        drawString(context, name, x + 2, y + GUI.INSTANCE.getTextOffset(), new Color(255, 255, 255, alpha).getRGB());
+        drawString(context, name, x + 2, y + GUI.get().getTextOffset(), new Color(255, 255, 255, alpha).getRGB());
 
-        if (GUI.INSTANCE.showCount.get()) {
+        if (GUI.get().showCount.get()) {
             int gray = new Color(170, 170, 170, alpha).getRGB();
             int white = new Color(255, 255, 255, alpha).getRGB();
-            int bracketColor = gray;
-            int numberColor = white;
-            String leftBracket = "[";
-            String numberText = Integer.toString(modules.size());
-            String rightBracket = "]";
-            float totalWidth = mc.font.width(leftBracket) + mc.font.width(numberText) + mc.font.width(rightBracket);
-            float cx = getX() + getWidth() - totalWidth - 2f;
-            float ty = y + GUI.INSTANCE.getTextOffset();
-            drawString(context, leftBracket, cx, ty, bracketColor);
-            cx += mc.font.width(leftBracket);
-            drawString(context, numberText, cx, ty, numberColor);
-            cx += mc.font.width(numberText);
-            drawString(context, rightBracket, cx, ty, bracketColor);
+            float countX = getX() + getWidth() - mc.font.width("[0]") - 2f;
+            float ty = y + GUI.get().getTextOffset();
+            drawString(context, "[", countX, ty, gray);
+            countX += mc.font.width("[");
+            drawString(context, Integer.toString(modules.size()), countX, ty, white);
+            countX += mc.font.width(Integer.toString(modules.size()));
+            drawString(context, "]", countX, ty, gray);
         }
 
-        if (GUI.INSTANCE.outline.get()) {
-            int outlineCol = new Color(theme.getRed(), theme.getGreen(), theme.getBlue(), (int) (theme.getAlpha() * (alpha / 255f))).getRGB();
+        if (GUI.get().outline.get()) {
+            int outlineCol = new Color(theme.getRed(), theme.getGreen(), theme.getBlue(), (int) (theme.getAlpha() * fade)).getRGB();
             RenderUtil.rect(context, getX() - 1, getY(), getX(), getY() + getHeight() + 2 + animatedHeight, outlineCol);
             RenderUtil.rect(context, getX() + getWidth(), getY(), getX() + getWidth() + 1, getY() + getHeight() + 2 + animatedHeight, outlineCol);
             RenderUtil.rect(context, getX() - 1, getY() + getHeight() + 2 + animatedHeight, getX() + getWidth() + 1, getY() + getHeight() + 3 + animatedHeight, outlineCol);
@@ -129,88 +133,72 @@ public class Frame {
         if (scissor) context.enableScissor(getX(), scissorTop, getX() + getWidth(), scissorBottom);
 
         if (factor > 0.001f) {
-            itemHeight = 0;
+            float listTop = getY() + getHeight() + 2;
+            float itemY = 0;
             for (ModuleButton b : modules) {
-                if (b.isHidden()) continue;
-                if (searching && !matchesSearch(b)) continue;
+                if (!visible(b)) continue;
                 b.setX(getX() + 1);
-                b.setY(getY() + getHeight() + 2 + itemHeight - (pyzo ? drawScroll : 0));
-                if (pyzo) {
-                    float bh = b.getHeight() + b.getItemHeight() + 1f + (b.isOpen() ? 1 : 0);
-                    if (b.getY() + bh >= getY() + getHeight() + 2 && b.getY() <= getY() + getHeight() + 2 + frameContentHeight) b.render(context, mouseX, mouseY, delta, alpha);
-                } else b.render(context, mouseX, mouseY, delta, alpha);
-                itemHeight += b.getHeight() + b.getItemHeight() + 1f + (b.isOpen() ? 1 : 0);
+                b.setY(listTop + itemY);
+                b.render(context, mouseX, mouseY, delta, alpha);
+                itemY += b.getHeight() + b.getItemHeight() + 1f + (b.isOpen() ? 1 : 0);
             }
         }
 
         if (scissor) context.disableScissor();
 
-        if (factor > 0.001f)
-            for (ModuleButton b : modules)
-                if (!b.isHidden()) {
-                    if (searching && !matchesSearch(b)) continue;b.renderTooltip(context, mouseX, mouseY);
-                }
+        if (factor > 0.001f) {
+            for (ModuleButton b : modules) {
+                if (!visible(b)) continue;
+                b.renderTooltip(context, mouseX, mouseY);
+            }
+        }
     }
 
     public void mouseClicked(int mx, int my, int btn) {
         if (isHovering(mx, my)) {
             if (btn == 0) {
-                x2 = x - mx;
-                y2 = y - my;
-                drag = true;
+                dragXOffset = x - mx;
+                dragYOffset = y - my;
+                dragging = true;
             }
-
-            if (btn == 1) {
-                open = !open;
-                if (!open && GUI.INSTANCE.scrollMode.get() == GUI.ScrollMode.PYZO) scrollOffset = 0;
-            }
+            if (btn == 1) open = !open;
         }
 
         if (!open) return;
-        if (GUI.INSTANCE.scrollMode.get() == GUI.ScrollMode.PYZO && !isHoveringOverModuleList(mx, my)) return;
-        boolean searching = isSearching();
         for (ModuleButton b : modules) {
-            if (b.isHidden()) continue;
-            if (searching && !matchesSearch(b)) continue;
+            if (!visible(b)) continue;
             b.mouseClicked(mx, my, btn);
         }
     }
 
     public void mouseReleased(int mx, int my, int btn) {
-        if (btn == 0) drag = false;
-        for (ModuleButton b : modules) if (!b.isHidden()) b.mouseReleased(mx, my, btn);
-    }
-
-    public void mouseScrolled(double mx, double my, double amount) {
-        if (GUI.INSTANCE.scrollMode.get() == GUI.ScrollMode.PYZO && isHoveringOverModuleList(mx, my) && open) {
-            float fullH = 0;
-            for (ModuleButton b : modules) {
-                if (b.isHidden()) continue;
-                if (isSearching() && !matchesSearch(b)) continue;
-                fullH += b.getHeight() + b.getItemHeight() + 1f + (b.isOpen() ? 1 : 0);
-            }
-            float maxScroll = Math.max(0, fullH - GUI.INSTANCE.categoryHeight.getInt());
-            scrollOffset -= amount * GUI.INSTANCE.scrollSpeed.getInt();
-            scrollOffset = Math.max(0, Math.min(scrollOffset, maxScroll));
+        if (btn == 0) dragging = false;
+        for (ModuleButton b : modules) {
+            if (!b.isHidden()) b.mouseReleased(mx, my, btn);
         }
     }
 
     public void onKeyPressed(int code) {
-        if (open) for (ModuleButton b : modules) if (!b.isHidden()) b.onKeyPressed(code);
+        if (open) {
+            for (ModuleButton b : modules) {
+                if (!b.isHidden()) b.onKeyPressed(code);
+            }
+        }
     }
 
     public void keyReleased(int code) {
-        if (open) for (ModuleButton b : modules) if (!b.isHidden()) b.keyReleased(code);
+        if (open) {
+            for (ModuleButton b : modules) {
+                if (!b.isHidden()) b.keyReleased(code);
+            }
+        }
     }
 
     public void charTyped(char c, int m) {
-        if (open) for (ModuleButton b : modules) if (!b.isHidden()) b.onCharTyped(c, m);
-    }
-
-    private void drag(int mx, int my) {
-        if (drag) {
-            x = x2 + mx;
-            y = y2 + my;
+        if (open) {
+            for (ModuleButton b : modules) {
+                if (!b.isHidden()) b.onCharTyped(c, m);
+            }
         }
     }
 
@@ -218,30 +206,15 @@ public class Frame {
         return mx >= x && mx <= x + getWidth() && my >= y && my <= y + getHeight();
     }
 
-    private boolean isHoveringOverModuleList(double mx, double my) {
-        float fullH = 0;
-        for (ModuleButton b : modules) {
-            if (b.isHidden()) continue;
-            if (isSearching() && !matchesSearch(b)) continue;
-            fullH += b.getHeight() + b.getItemHeight() + 1f + (b.isOpen() ? 1 : 0);
-        }
-
-        float visible = Math.min(GUI.INSTANCE.categoryHeight.getInt(), fullH);
-        return mx >= getX() && mx <= getX() + getWidth()
-                && my >= getY() + getHeight() + 2
-                && my <= getY() + getHeight() + 2 + visible;
-    }
-
     private void drawString(GuiGraphicsExtractor ctx, String s, float x, float y, int color) {
         ctx.text(mc.font, s, (int) x, (int) y, color, true);
     }
 
     public int getWidth() {
-        return 100 + GUI.INSTANCE.width.getInt();
+        return 100 + GUI.get().width.getInt();
     }
 
     public int getHeight() {
-        return 12 + GUI.INSTANCE.height.getInt();
+        return 12 + GUI.get().height.getInt();
     }
-
 }

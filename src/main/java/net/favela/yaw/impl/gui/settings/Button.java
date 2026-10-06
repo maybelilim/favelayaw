@@ -17,7 +17,7 @@ public class Button {
     @Getter
     private String name;
     @Getter
-    private final Setting setting;
+    private final Setting<?> setting;
     @Getter
     private final ModuleButton button;
     @Setter
@@ -44,7 +44,7 @@ public class Button {
 
     protected final Minecraft mc = Minecraft.getInstance();
 
-    public Button(Setting setting, ModuleButton button) {
+    public Button(Setting<?> setting, ModuleButton button) {
         this.setting = setting;
         this.button = button;
         this.name = setting.getName();
@@ -104,11 +104,7 @@ public class Button {
         return mc.font.lineHeight;
     }
 
-    public int getTextOffset() {
-        int h = GUI.INSTANCE.height.getInt();
-        if (h == -2) return 1;
-        if (h == 2) return 3;
-        return 2;
+    protected int getTextOffset() {
+        return GUI.get().getTextOffset();
     }
-
 }

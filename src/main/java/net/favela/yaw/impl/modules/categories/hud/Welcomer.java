@@ -16,7 +16,9 @@ import static net.favela.yaw.impl.util.wrapper.Wrapper.MC;
 @AutoService(Module.class)
 public class Welcomer extends Hud {
 
-    public enum WelcomerMode { WELCOME, WELCOMETO, HI, HELLO, CUSTOM }
+    public enum WelcomerMode {
+        WELCOME, WELCOMETO, HI, HELLO, CUSTOM
+    }
 
     public EnumSetting<WelcomerMode> mode = enm("Mode", WelcomerMode.WELCOME);
     public StringSetting customText = str("CustomText", "Welcome to " + EntryPoint.name());
@@ -54,7 +56,7 @@ public class Welcomer extends Hud {
                 ? (MC.getWindow().getGuiScaledWidth() - textWidth) / 2.0f
                 : getX();
 
-        int accent = GUI.INSTANCE != null ? GUI.INSTANCE.theme.getRGB() : 0xFFA387FF;
+        int accent = GUI.get() != null ? GUI.get().theme.getRGB() : 0xFFA387FF;
 
         x = draw(context, font, prefix, x, y, accent);
         x = draw(context, font, name, x, y, 0xFFFFFFFF);

@@ -1,6 +1,7 @@
 package net.favela.yaw.impl.util.models;
 
 public class Timer {
+
     private long lastMs = System.currentTimeMillis();
 
     public boolean passedMs(long ms) {

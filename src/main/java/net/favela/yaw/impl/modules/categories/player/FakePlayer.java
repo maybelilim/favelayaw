@@ -27,7 +27,7 @@ public class FakePlayer extends Module {
     @Override
     public void onEnable() {
         if (MC.level == null || MC.player == null) {
-            toggle();
+            disable();
             return;
         }
 
@@ -39,17 +39,18 @@ public class FakePlayer extends Module {
         double spawnZ = MC.player.getZ() + look.z * 3.0;
         fakePlayer.snapTo(spawnX, MC.player.getY(), spawnZ, MC.player.getYRot(), MC.player.getXRot());
 
-        fakePlayer.setId(-1337);
+        int id = (int) profile.id().getLeastSignificantBits();
+        fakePlayer.setId(id < 0 ? id : -id);
         fakePlayer.setHealth(20.0f);
         fakePlayer.setAbsorptionAmount(16.0f);
 
         fakePlayer.getInventory().clearContent();
         fakePlayer.getInventory().setItem(0, new ItemStack(Items.NETHERITE_SWORD));
 
-        fakePlayer.setItemSlot(EquipmentSlot.HEAD,new ItemStack(Items.NETHERITE_HELMET));
-        fakePlayer.setItemSlot(EquipmentSlot.CHEST,new ItemStack(Items.NETHERITE_CHESTPLATE));
-        fakePlayer.setItemSlot(EquipmentSlot.LEGS,new ItemStack(Items.NETHERITE_LEGGINGS));
-        fakePlayer.setItemSlot(EquipmentSlot.FEET,new ItemStack(Items.NETHERITE_BOOTS));
+        fakePlayer.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.NETHERITE_HELMET));
+        fakePlayer.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.NETHERITE_CHESTPLATE));
+        fakePlayer.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.NETHERITE_LEGGINGS));
+        fakePlayer.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.NETHERITE_BOOTS));
 
         MC.level.addEntity(fakePlayer);
     }
